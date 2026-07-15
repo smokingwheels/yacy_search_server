@@ -84,16 +84,24 @@ public class MonitorFilter implements Filter {
                 System.currentTimeMillis(),
                 -1);
 
-        // a keep-alive connection reuses the id: remove a previous entry to show the latest request
+          // a keep-alive connection reuses the id: remove a previous entry to show the latest request
         ConnectionInfo.removeServerConnection(info);
         ConnectionInfo.addServerConnection(info);
 
-        if (ConnectionInfo.isServerCountReached()
-                && !Domains.isLocal(hrequest.getRemoteAddr(), null)) {
-            ((HttpServletResponse) response).sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE,
-                    "max. server connections reached (increase /PerformanceQueues_p.html -> httpd Session Pool).");
-            return;
+        try {
+
+            if (ConnectionInfo.isServerCountReached()
+                    && !Domains.isLocal(hrequest.getRemoteAddr(), null)) {
+                ((HttpServletResponse) response).sendError(
+                        HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                        "max. server connections reached (increase /PerformanceQueues_p.html -> httpd Session Pool).");
+                return;
+            }
+
+            chain.doFilter(request, response);
+
+        } finally {
+            ConnectionInfo.removeServerConnection(info);
         }
-        chain.doFilter(request, response);
     }
 }
