@@ -426,7 +426,7 @@ if (string != null && string.length() >= 1) {
         if (isCatchall()) return new StringBuilder(AbstractSolrConnector.CATCHALL_QUERY);
 
         // add goal query
-        return getGoalQuery();
+        return getGoalQuery(false);
     }
 
     /**
@@ -530,7 +530,7 @@ if (string != null && string.length() >= 1) {
         if (isCatchall()) return new StringBuilder(AbstractSolrConnector.CATCHALL_QUERY);
 
         // add goal query
-        StringBuilder w = getGoalQuery();
+        StringBuilder w = getGoalQuery(true);
         q.append(w);
 
         // combine these queries for all relevant fields
@@ -547,21 +547,22 @@ if (string != null && string.length() >= 1) {
         return q;
     }
 
-    private StringBuilder getGoalQuery() {
+    private StringBuilder getGoalQuery(final boolean strictAllTerms) {
         int wc = 0;
         StringBuilder w = new StringBuilder(80);
         for (String s: include_strings) {
             if (Segment.catchallString.equals(s)) continue;
-            if (wc > 0) w.append(" AND ");
+            if (wc > 0) w.append(strictAllTerms ? " AND " : " ");
             if (s.indexOf('~') >= 0 || s.indexOf('*') >= 0 || s.indexOf('?') >= 0) w.append(s); else w.append(dq).append(s).append(dq);
             wc++;
         }
         for (String s: exclude_strings){
-            if (wc > 0) w.append(" AND -");
+            if (wc > 0) w.append(strictAllTerms ? " AND -" : " -");
+            else w.append('-');
             if (s.indexOf('~') >= 0 || s.indexOf('*') >= 0 || s.indexOf('?') >= 0) w.append(s); else w.append(dq).append(s).append(dq);
             wc++;
         }
-        if (wc > 1) {w.insert(0, '('); w.append(')');}
+        if (strictAllTerms && wc > 1) {w.insert(0, '('); w.append(')');}
         return w;
     }
 

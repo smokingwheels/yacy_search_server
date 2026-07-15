@@ -1,8 +1,8 @@
 package net.yacy.htroot;
 
 import net.yacy.cora.protocol.RequestHeader;
-import net.yacy.data.UserDB;
 import net.yacy.http.servlets.TemplateMissingParameterException;
+import net.yacy.cora.util.ConcurrentLog;
 import net.yacy.kelondro.util.Formatter;
 import net.yacy.search.Switchboard;
 import net.yacy.search.query.QueryParams;
@@ -22,10 +22,7 @@ public class yacysearchlatestinfo {
         final serverObjects prop = new serverObjects();
         final Switchboard sb = (Switchboard) env;
 
-        final boolean adminAuthenticated = sb.verifyAuthentication(header);
-		final UserDB.Entry user = sb.userDB != null ? sb.userDB.getUser(header) : null;
-		final boolean userAuthenticated = (user != null && user.hasRight(UserDB.AccessRight.EXTENDED_SEARCH_RIGHT));
-		final boolean authenticated = adminAuthenticated || userAuthenticated;
+        final boolean authenticated = sb.verifyAuthentication(header);
 
         // find search event
         final String eventID = post.get("eventID", "");
@@ -59,7 +56,23 @@ public class yacysearchlatestinfo {
         prop.put("remoteIndexCount", Formatter.number(theSearch.remote_rwi_available.get() + theSearch.remote_solr_available.get(), true));
         prop.put("remotePeerCount", Formatter.number(theSearch.remote_rwi_peerCount.get() + theSearch.remote_solr_peerCount.get(), true));
         prop.putJSON("navurlBase", QueryParams.navurlBase(RequestHeader.FileType.HTML, theSearch.query, null, false, authenticated).toString());
-        prop.put("feedRunning", Boolean.toString(!theSearch.isFeedingFinished()));
+        final boolean feedRunning = !theSearch.isFeedingFinished();
+        prop.put("feedRunning", Boolean.toString(feedRunning));
+
+        if (theSearch.getResultCount() == 0) {
+            ConcurrentLog.info(
+                "yacysearchlatestinfo",
+                "ZERO COUNT: eventID="
+                    + eventID
+                    + " query="
+                    + theSearch.query.getQueryGoal().getQueryString(false)
+                    + " offset="
+                    + offset
+                    + " itemsPerPage="
+                    + theSearch.query.itemsPerPage
+                    + " feedRunning="
+                    + feedRunning);
+        }
 
         return prop;
     }

@@ -12,6 +12,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+import net.yacy.ai.LogReportService;
 import net.yacy.cora.protocol.RequestHeader;
 import net.yacy.search.Switchboard;
 import net.yacy.server.serverObjects;
@@ -74,7 +75,9 @@ public class AILab {
         
         // Shield configuration: consider the shield page visit as completion
         final boolean hasShield = "true".equalsIgnoreCase(sb.getConfig("ui.AIShield_p.visited", "false"));
-        final boolean frontPageLinkActivated = sb.getConfigBool("ai.shield.show-chat-link", false);
+        final boolean hasToolsConfig = "true".equalsIgnoreCase(sb.getConfig("ui.SkillsConfig_p.visited", "false"))
+                || "true".equalsIgnoreCase(sb.getConfig("ui.SkilsConfig_p.visited", "false"))
+                || "true".equalsIgnoreCase(sb.getConfig("ui.ToolsConfig_p.visited", "false"));
 
         prop.put("ailab_inference_status", hasEngine ? "ready" : "pending");
         prop.put("ailab_model_status", hasEngine && hasModel ? "ready" : "pending");
@@ -83,7 +86,9 @@ public class AILab {
         prop.putNum("ailab_index_count", indexDocs);
         prop.putNum("ailab_index_needed", indexNeeded);
         prop.put("ailab_rag_status", hasEngine && hasModel && (hasRagRole || ragVisited) ? "ready" : "pending");
-        prop.put("ailab_shield_status", hasEngine && hasModel && hasShield && frontPageLinkActivated ? "ready" : "pending");
+        prop.put("ailab_tools_status", hasToolsConfig ? "ready" : "pending");
+        prop.put("ailab_shield_status", hasShield ? "ready" : "pending");
+        prop.put("ailab_logreports_status", LogReportService.hasConfiguredLogReportModel() ? "ready" : "pending");
 
         return prop;
     }

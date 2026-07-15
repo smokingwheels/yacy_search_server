@@ -56,6 +56,8 @@ public final class SwitchboardConstants {
     public static final String ADMIN_ACCOUNT_FOR_LOCALHOST  = "adminAccountForLocalhost";
     public static final String ADMIN_ACCOUNT_All_PAGES      = "adminAccountAllPages";
     public static final String ADMIN_REALM                  = "adminRealm";
+    /** Servlet-container role assigned exclusively to the built-in administrator account. */
+    public static final String ADMIN_ACCOUNT_ROLE           = "adminRight";
 
     // server settings
     public static final String SERVER_PORT                  = "port"; // port for the http server
@@ -64,6 +66,10 @@ public final class SwitchboardConstants {
     public static final String SERVER_SHUTDOWNPORT          = "port.shutdown"; // local port to listen for a shutdown signal (0 <= disabled)
     public static final String SERVER_STATICIP              = "staticIP"; // static IP of http server
     public static final String SERVER_PUBLICPORT            = "publicPort";
+    /** Socket peers whose validated X-Real-IP header may be used for routing and tracking. */
+    public static final String SERVER_REVERSE_PROXY_TRUSTED = "server.reverseProxy.trusted";
+    public static final String SERVER_REVERSE_PROXY_TRUSTED_DEFAULT =
+            "127[.]0[.]0[.]1,0:0:0:0:0:0:0:1,::1";
 
     public static final String PUBLIC_SEARCHPAGE            = "publicSearchpage";
 
@@ -207,6 +213,10 @@ public final class SwitchboardConstants {
     public static final String INDEX_RECEIVE_ALLOW              = "allowReceiveIndex";
     public static final String INDEX_RECEIVE_ALLOW_SEARCH       = "allowReceiveIndex.search";
     public static final String INDEX_RECEIVE_BLOCK_BLACKLIST    = "indexReceiveBlockBlacklist";
+    public static final String INDEX_RECEIVE_BLOCK_ERRORS       = "indexReceiveBlockErrors";
+    public static final String INDEX_RECEIVE_BLOCK_ERRORS_RETRY_DAYS = "indexReceiveBlockErrors.retryAfterDays";
+    /** Permanent error HTTP status codes (comma-separated). Default: 404,410,-1 (-1=DNS/network errors) */
+    public static final String INDEX_RECEIVE_BLOCK_ERRORS_PERMANENT  = "indexReceiveBlockErrors.permanentStatus";
 
     /**
      * <p><code>public static final String <strong>INDEX_DIST_ALLOW_WHILE_CRAWLING</strong> = "allowDistributeIndexWhileCrawling"</code></p>
@@ -356,12 +366,6 @@ public final class SwitchboardConstants {
     public static final String CRAWLER_USER_AGENT_MINIMUMDELTA  = "crawler.userAgent.minimumdelta";
     public static final String CRAWLER_USER_AGENT_CLIENTTIMEOUT = "crawler.userAgent.clienttimeout";
 
-    /** Key of the setting controlling the maximum time to wait for each wkhtmltopdf call when rendering PDF snapshots */
-    public static final String SNAPSHOTS_WKHTMLTOPDF_TIMEOUT          = "snapshots.wkhtmltopdf.timeout";
-
-    /** Default maximum time in seconds to wait for each wkhtmltopdf call when rendering PDF snapshots*/
-    public static final long SNAPSHOTS_WKHTMLTOPDF_TIMEOUT_DEFAULT   = 30;
-
     /* --- debug flags ---  */
 
     /** when set to true : do not use the local dht/rwi index (which is not done if we do remote searches) */
@@ -490,7 +494,7 @@ public final class SwitchboardConstants {
     /**
      * <p><code>public static final String <strong>WORK_PATH</strong> = "wordPath"</code></p>
      * <p>Name of the setting specifying the folder beginning from the YaCy-installation's top-folder, where all
-     * DBs containing "work" of the user are saved. Such include bookmarks, messages, wiki, blog</p>
+     * DBs containing "work" of the user are saved. Such include bookmarks and messages.</p>
      *
      */
     public static final String WORK_PATH                = "workPath";

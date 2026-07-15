@@ -4,6 +4,7 @@
     <title>YaCy '#[clientname]#': Chat</title>
     #%env/templates/metas.template%#
     <link rel="stylesheet" href="js/styles/a11y-dark.min.css" type="text/css" />
+    <link rel="stylesheet" href="env/markdown.css" type="text/css" />
     <style type="text/css">
       /* 1. Global Container */
       .chat-panel {
@@ -83,6 +84,21 @@
         color: #ffffff;
         border: 1px solid #2c3e50;
       }
+
+      /* --- TOOL: Tool Call Output --- */
+      .chat-turn.tool {
+        background-color: #f0f7e8;
+        border-left-width: 5px;
+        border-left-style: solid;
+        border-color: #b7d7a8;
+        color: #24421a;
+      }
+
+      .chat-turn.tool legend {
+        background: #3d6b2f;
+        color: #ffffff;
+        border: 1px solid #3d6b2f;
+      }
     
       /* --- SYSTEM: Log Entry Style --- */
       .chat-turn.system {
@@ -106,52 +122,102 @@
         font-family: 'Roboto Mono', 'Menlo', 'Consolas', monospace;
       }
 
-      .chat-body.markdown {
-        white-space: normal;
-      }
-
-      .chat-body.markdown,
-      .chat-body.markdown * {
-        font-family: 'Roboto Mono', 'Menlo', 'Consolas', monospace !important; /* Force markdown output and descendants to stay monospace, FTW! */
-      }
-
-      .chat-body.markdown.markdown-body {
+      /* markdown output styles come from the shared env/markdown.css (.markdown-body);
+         only the chat-specific container properties are set here */
+      .chat-body.markdown-body {
         max-width: 100%;
         padding: 0;
       }
 
-      .chat-body.markdown h1,
-      .chat-body.markdown h2,
-      .chat-body.markdown h3,
-      .chat-body.markdown h4,
-      .chat-body.markdown h5,
-      .chat-body.markdown h6,
-      .chat-body.markdown p,
-      .chat-body.markdown li,
-      .chat-body.markdown pre,
-      .chat-body.markdown code {
-        font-size: 1.2rem;
-        line-height: 1.6;
+      .think-block {
+        margin: 8px 0;
+        border: 1px solid #d6dbe5;
+        border-radius: 8px;
+        background: #f5f7fb;
+        padding: 6px 10px;
       }
 
-      .chat-body pre {
-        background-color: #2c3e50;
-        border: 1px solid #dfe2e5;
+      .think-block summary {
+        cursor: pointer;
+        font-weight: 700;
+        list-style: none;
+      }
+
+      .think-block summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .think-block[open] summary {
+        margin-bottom: 6px;
+      }
+
+      .think-content {
+        color: #394b59;
+        font-size: 0.85rem;
+      }
+
+      .toolcalls-popover {
+        position: absolute;
+        z-index: 20;
+        top: 24px;
+        right: 8px;
+        min-width: 280px;
+        max-width: min(560px, calc(100vw - 40px));
+        max-height: 380px;
+        overflow: auto;
+        border: 1px solid #c3cbd9;
+        border-radius: 6px;
+        background: #eef2f7;
+        box-shadow: 3px 3px 0px rgba(0,0,0,0.15);
+        padding: 8px 10px;
+      }
+
+      .toolcalls-popover-header {
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      .toolcalls-list {
+        margin-top: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .toolcall-item {
+        border: 1px solid #d6dbe5;
         border-radius: 4px;
-        padding: 2px;
-        overflow-x: auto;
-        font-family: 'Roboto Mono', 'Menlo', 'Consolas', monospace;
-        white-space: pre;
+        background: #f5f7fb;
+        padding: 6px 8px;
       }
 
-      .chat-body code {
-        font-family: 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+      .toolcall-name {
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .toolcall-args {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
         font-size: 0.95rem;
-        background-color: rgba(27,31,35,0.05);
-        padding: 2px 4px;
-        border-radius: 4px;
+        line-height: 1.4;
       }
-    
+
+      .toolcall-result-title {
+        margin-top: 6px;
+        margin-bottom: 4px;
+        font-weight: 700;
+      }
+
+      .toolcall-result {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.95rem;
+        line-height: 1.4;
+      }
+
       /* 6. Composer Row (inside User fieldset) */
       .composer {
         display: flex;
@@ -165,6 +231,87 @@
         border-left-style: solid;
         border-color: #d1d9e6;
         color: #2c3e50;
+      }
+
+      .search-default-control {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 1px 0 2px 0;
+      }
+
+      .search-default-options {
+        --segments: 2;
+        --active: 0;
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0px;
+        padding: 0px;
+        border: 1px solid #c3cbd9;
+        border-radius: 999px;
+        background: #eef2f7;
+        overflow: hidden;
+        width: 500px;
+        max-width: 100%;
+        height: 22px;
+      }
+
+      .search-default-options input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .search-default-options label {
+        flex: 1;
+        padding: 0;
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: 500;
+        line-height: 1.1;
+        color: #2c3e50;
+        cursor: pointer;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        box-sizing: border-box;
+        transform: translateY(2px);
+      }
+
+      .search-default-options input:checked + label {
+        color: #ffffff;
+      }
+
+      .search-default-options .search-default-slider {
+        position: absolute;
+        top: 1px;
+        bottom: 1px;
+        left: 1px;
+        width: calc((100% - 2px) / var(--segments, 2));
+        background: #5092CF;
+        border-radius: 999px;
+        transform: translateX(calc(var(--active, 0) * 100%));
+        transition: transform 0.2s;
+        z-index: 0;
+      }
+
+      .search-default-options .is-future {
+        display: none;
+      }
+
+      .search-default-options .global-option,
+      .search-default-options .global-label {
+        display: none;
+      }
+
+      .search-default-options.has-global .global-option,
+      .search-default-options.has-global .global-label {
+        display: flex;
       }
 
       .composer-main {
@@ -194,31 +341,15 @@
         position: relative;
       }
 
-      .attachment-row.has-attachment .attachment-clear {
-        display: inline-flex;
-      }
-      .attachment-row.has-attachment .attachment-button {
-        display: none;
-      }
-      .attachment-row.has-attachment .search-button {
-        display: none;
-      }
-      .attachment-row.search-mode .attachment-button,
-      .attachment-row.search-mode .search-button {
-        display: none;
-      }
-      .attachment-row.search-mode .attachment-clear {
-        display: inline-flex;
-      }
       .attachment-row.loading .attachment-filename {
         font-style: italic;
         color: #6b7a90;
       }
-
       .attachment-button,
       .search-button,
       .copy-button,
-      .user-trim-button {
+      .user-trim-button,
+      .toolcalls-button {
         width: 24px;
         height: 24px;
         border: none;
@@ -237,8 +368,28 @@
       .attachment-button:hover,
       .search-button:hover,
       .copy-button:hover,
-      .user-trim-button:hover {
+      .user-trim-button:hover,
+      .toolcalls-button:hover {
         background: #c3cbd9;
+      }
+      .toolcalls-button.pending {
+        cursor: default;
+        opacity: 0.75;
+        animation: toolcall-pulse 1s ease-in-out infinite;
+      }
+      .toolcalls-button.pending:hover {
+        background: #d1d9e6;
+      }
+      @keyframes toolcall-pulse {
+        0%, 100% { opacity: 0.45; }
+        50% { opacity: 1; }
+      }
+      .button-active {
+        background: #337ab7;
+        color: #fff;
+      }
+      .button-active:hover {
+        background: #2b669a;
       }
 
       .attachment-filename {
@@ -249,24 +400,11 @@
         text-overflow: ellipsis;
       }
 
-      .attachment-clear {
-        display: none;
-        width: 24px;
-        height: 24px;
-        border: none;
-        border-radius: 4px;
-        background: #d1d9e6;
+      .search-hint {
+        font-family: 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+        font-size: 0.95rem;
+        white-space: nowrap;
         color: #2c3e50;
-        font-weight: 800;
-        font-size: 1.25rem;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: background 0.15s, border-color 0.15s, color 0.15s;
-      }
-
-      .attachment-clear:hover {
-        background: #c3cbd9;
       }
 
       .copy-button,
@@ -274,6 +412,20 @@
         position: absolute;
         top: -6px;
         right: 8px;
+      }
+
+      .toolcalls-button {
+        position: static;
+      }
+
+      .toolcall-toolbar {
+        position: absolute;
+        top: -6px;
+        right: 36px;
+        display: inline-flex;
+        flex-direction: row;
+        gap: 4px;
+        align-items: center;
       }
 
       .user-delete-button {
@@ -551,11 +703,34 @@
 	  #%env/templates/submenuAI.template%#
     #(/topmenu)#
 
+    #(topmenu)#
+      <script>document.getElementById("greeting-icon").src="env/grafics/invisible.png"</script>
+      <h2 class="yacy"><a href="#[promoteSearchPageGreeting.homepage]#" class="yacylogo"><img src="#[promoteSearchPageGreeting.largeImage]#" alt="#[promoteSearchPageGreeting.imageAlt]#" style="margin: auto;"/></a></h2>
+      <h2 class="yacy">#[promoteChatPageGreeting]#</h2>
+    ::
+      <script>document.getElementById("greeting-icon").src="env/grafics/invisible.png"</script>
+      <h2 class="yacy"><a href="#[promoteSearchPageGreeting.homepage]#" class="yacylogo"><img src="#[promoteSearchPageGreeting.largeImage]#" alt="#[promoteSearchPageGreeting.imageAlt]#" style="margin: auto;"/></a></h2>
+      <h2 class="yacy">#[promoteChatPageGreeting]#</h2>
+    ::
+    #(/topmenu)#
+
     <h2>YaCy Chat</h2>
-    <p>Chat with your configured LLM using the local YaCy settings. Requests are sent to the same host that served this page.</p>
+    <p>This Chat is private. YaCy does not keep any history — only your browser remembers the current conversation.</p>
 
       <div class="chat-panel">
         <div class="chat-flow">
+          <div class="search-default-control">
+            <span>Default Dialog Augmentation:</span>
+<div class="search-default-options" id="searchDefaultOptions" role="radiogroup" aria-label="Attach search results by default">
+               <input type="radio" id="searchDefaultNone" name="searchDefault" value="no"/>
+               <label for="searchDefaultNone">no search, allow attachments</label>
+               <input type="radio" id="searchDefaultLocal" name="searchDefault" value="local" checked="checked"/>
+               <label for="searchDefaultLocal">use local search</label>
+               <input type="radio" id="searchDefaultGlobal" name="searchDefault" value="global" class="global-option"/>
+               <label for="searchDefaultGlobal" class="global-label">use global search</label>
+               <span class="search-default-slider" aria-hidden="true"></span>
+             </div>
+          </div>
           <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
           <form id="chatForm">
             <fieldset class="chat-turn user">
@@ -567,11 +742,9 @@
                     <button type="button" class="search-button" id="searchButton" aria-label="Search">
                       <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
                     </button>
+                    <span class="search-hint" id="searchHint">Attach Search Results</span>
                     <button type="button" class="attachment-button" id="addFileButton" aria-label="Attach a file">
                       <span class="glyphicon glyphicon-paperclip" aria-hidden="true"></span>
-                    </button>
-                    <button type="button" class="attachment-clear" id="clearFileButton" aria-label="Remove attached file">
-                      <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
                     </button>
                     <span class="attachment-filename" id="attachmentFilename">Attach PNG/JPG or text (.txt/.md/.tex)</span>
                     <input type="file" id="fileInput" class="hidden-file-input" accept="image/png,image/jpeg,text/plain,text/markdown,text/x-tex,application/x-tex,application/x-latex,text/*,.png,.jpg,.jpeg,.txt,.md,.markdown,.tex"/>
@@ -605,12 +778,22 @@
 
     <script src="js/highlight.min.js"></script>
     <script src="js/marked.umd.js"></script>
+    <script src="js/yacy-markdown.js"></script>
     <script src="js/index.umd.min.js"></script>
+    <script src="js/vfs.js"></script>
     <script type="text/javascript">
     const SYSTEM_PROMPT = '#[system_prompt]#';
     const defaultApiHost = '';
+    const P2P_MODE = #[p2p_mode]# === 1;
 
-    const STORAGE_KEY = 'yacychat_recent_pairs';
+    const CHAT_VFS_PATH = '/yacy/chat/chat.json';
+    const SETTINGS_VFS_PATH = '/yacy/chat/settings.json';
+    const SEARCH_DEFAULTS = {
+        none: 'no',
+        local: 'local',
+        global: 'global'
+    };
+    const SEARCH_OPTIONS = P2P_MODE ? SEARCH_DEFAULTS : { none: 'no', local: 'local' };
 
     const state = {
         messages: [],
@@ -621,7 +804,8 @@
         },
         busy: false,
         attachment: null,
-        searchMode: false,
+        searchMode: SEARCH_DEFAULTS.none,
+        searchDefault: P2P_MODE ? SEARCH_DEFAULTS.local : SEARCH_DEFAULTS.local,
         assistantSeen: false,
         showSystem: false
     };
@@ -635,7 +819,6 @@
         searchButton: document.getElementById('searchButton'),
         addFileButton: document.getElementById('addFileButton'),
         attachmentFilename: document.getElementById('attachmentFilename'),
-        clearFileButton: document.getElementById('clearFileButton'),
         attachmentRow: document.getElementById('attachmentRow'),
         clearChatRow: document.getElementById('clearChatRow'),
         clearChatButton: document.getElementById('clearChatButton'),
@@ -643,8 +826,21 @@
         uploadChatButton: document.getElementById('uploadChatButton'),
         uploadChatInput: document.getElementById('uploadChatInput'),
         toggleSystemButton: document.getElementById('toggleSystemButton'),
-        composerMain: document.getElementById('composerMain')
+        composerMain: document.getElementById('composerMain'),
+        searchDefaultOptions: document.getElementById('searchDefaultOptions'),
+        searchDefaultNone: document.getElementById('searchDefaultNone'),
+        searchDefaultLocal: document.getElementById('searchDefaultLocal'),
+        searchDefaultGlobal: document.getElementById('searchDefaultGlobal')
     };
+
+    // configure search default options based on P2P mode
+    if (dom.searchDefaultOptions) {
+        if (P2P_MODE) {
+            dom.searchDefaultOptions.classList.add('has-global');
+        } else {
+            dom.searchDefaultOptions.classList.remove('has-global');
+        }
+    }
 
     const IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg']);
     const TEXT_MIME_TYPES = new Set(['text/plain', 'text/markdown', 'text/x-tex', 'application/x-tex', 'application/x-latex']);
@@ -653,6 +849,7 @@
     const ALLOWED_MIME_TYPES = new Set([...IMAGE_MIME_TYPES, ...TEXT_MIME_TYPES, 'text/*']);
     const ALLOWED_EXTENSIONS = new Set([...IMAGE_EXTENSIONS, ...TEXT_EXTENSIONS]);
     const FILE_ACCEPT_TYPES = [...ALLOWED_MIME_TYPES, ...ALLOWED_EXTENSIONS].join(',');
+
 
     if (dom.fileInput) {
         dom.fileInput.setAttribute('accept', FILE_ACCEPT_TYPES);
@@ -762,52 +959,13 @@
         } catch (err) {
             console.warn('Failed to initialize syntax highlighting', err);
         }
-        marked.setOptions({
-            gfm: true,
-            breaks: true,
-            smartLists: true,
-            mangle: false,
-            headerIds: false
-        });
+        marked.setOptions(YaCyMarkdown.markedOptions);
         return { enabled: true };
     })();
 
-    function escapeHTML(value) {
-        const div = document.createElement('div');
-        div.textContent = value || '';
-        return div.innerHTML;
-    }
-
-    function sanitizeHTML(html) {
-        if (!html) return '';
-        const template = document.createElement('template');
-        template.innerHTML = html;
-        const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta']);
-        const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_ELEMENT, null);
-        const toRemove = [];
-        while (walker.nextNode()) {
-            const el = walker.currentNode;
-            if (!el || !el.tagName) continue;
-            const tag = el.tagName.toLowerCase();
-            if (blockedTags.has(tag)) {
-                toRemove.push(el);
-                continue;
-            }
-            for (const attr of Array.from(el.attributes)) {
-                const name = attr.name.toLowerCase();
-                const value = attr.value || '';
-                if (name.startsWith('on')) {
-                    el.removeAttribute(attr.name);
-                    continue;
-                }
-                if ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(value)) {
-                    el.removeAttribute(attr.name);
-                }
-            }
-        }
-        toRemove.forEach(node => node.remove());
-        return template.innerHTML;
-    }
+    // shared markdown helpers from js/yacy-markdown.js, also used by LogReports_p.html
+    const escapeHTML = YaCyMarkdown.escapeHTML;
+    const sanitizeHTML = YaCyMarkdown.sanitizeHTML;
 
     function renderMarkdown(content) {
         const source = typeof content === 'string' ? content : '';
@@ -822,12 +980,187 @@
         }
     }
 
+    function stripThinkBlocks(text) {
+        if (!text || typeof text !== 'string') return text || '';
+        const ranges = buildFenceRanges(text);
+        const openPattern = /<think\s*>/ig;
+        const closePattern = /<\/think\s*>/ig;
+        let result = '';
+        let cursor = 0;
+        while (cursor < text.length) {
+            const open = findTagOutsideFences(text, cursor, openPattern, ranges);
+            if (!open) {
+                result += text.slice(cursor);
+                break;
+            }
+            result += text.slice(cursor, open.index);
+            const close = findTagOutsideFences(text, open.end, closePattern, ranges);
+            if (!close) {
+                break;
+            }
+            cursor = close.end;
+        }
+        return result;
+    }
+
+    function stripToolProtocolMarkup(text) {
+        if (!text || typeof text !== 'string') return text || '';
+        // Remove legacy/model-emitted tool protocol snippets like:
+        // <function=name>
+        // <parameter=key>
+        // value
+        let cleaned = text.replace(/^\s*<function=[^>\n]+>\s*$[\s\S]*?(?=^\s*$|$)/gim, '');
+        cleaned = cleaned.replace(/^\s*<parameter=[^>\n]+>\s*$[\s\S]*?(?=^\s*$|$)/gim, '');
+        // Collapse excessive blank lines introduced by stripping.
+        cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+        return cleaned;
+    }
+
+    function stripThinkFromContent(content) {
+        if (typeof content === 'string') return stripToolProtocolMarkup(stripThinkBlocks(content));
+        if (Array.isArray(content)) {
+            return content.map(part => {
+                if (part?.type === 'text' && typeof part.text === 'string') {
+                    return { ...part, text: stripToolProtocolMarkup(stripThinkBlocks(part.text)) };
+                }
+                return part;
+            });
+        }
+        if (content && typeof content === 'object' && typeof content.text === 'string') {
+            return { ...content, text: stripToolProtocolMarkup(stripThinkBlocks(content.text)) };
+        }
+        return content;
+    }
+
+    function resolveThinkDefaultOpen(container) {
+        const index = Number.parseInt(container?.dataset?.messageIndex || '', 10);
+        const message = Number.isNaN(index) ? null : state.messages[index];
+        const explicitOpen = container?.dataset?.thinkOpen;
+        if (explicitOpen === 'true') return true;
+        if (explicitOpen === 'false') return false;
+        if (typeof message?.thinkOpen === 'boolean') return message.thinkOpen;
+        if (container?.dataset?.thinkAutoClosed === 'true') return false;
+        return container?.dataset?.streaming === 'true';
+    }
+
+    function buildFenceRanges(text) {
+        const ranges = [];
+        if (!text || typeof text !== 'string') return ranges;
+        let inFence = false;
+        let fenceChar = '';
+        let fenceStart = 0;
+        let offset = 0;
+        const lines = text.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const fenceMatch = line.match(/^\s*(```+|~~~+)/);
+            if (fenceMatch) {
+                const marker = fenceMatch[1];
+                if (!inFence) {
+                    inFence = true;
+                    fenceChar = marker[0];
+                    fenceStart = offset;
+                } else if (marker[0] === fenceChar) {
+                    inFence = false;
+                    ranges.push([fenceStart, offset + line.length + 1]);
+                    fenceChar = '';
+                }
+            }
+            offset += line.length + 1;
+        }
+        if (inFence) {
+            ranges.push([fenceStart, text.length]);
+        }
+        return ranges;
+    }
+
+    function isIndexInFence(index, ranges) {
+        return ranges.some(range => index >= range[0] && index < range[1]);
+    }
+
+    function findTagOutsideFences(text, start, pattern, ranges) {
+        const regex = new RegExp(pattern.source, pattern.flags);
+        regex.lastIndex = start;
+        let match = regex.exec(text);
+        while (match) {
+            if (!isIndexInFence(match.index, ranges)) {
+                return { index: match.index, end: regex.lastIndex, match };
+            }
+            regex.lastIndex = match.index + 1;
+            match = regex.exec(text);
+        }
+        return null;
+    }
+
+    function hasThinkCloseOutsideFences(text) {
+        if (!text || typeof text !== 'string') return false;
+        const ranges = buildFenceRanges(text);
+        return !!findTagOutsideFences(text, 0, /<\/think\s*>/ig, ranges);
+    }
+
+    function renderAssistantContent(text, defaultOpen) {
+        const source = typeof text === 'string' ? text : '';
+        if (!source) return '';
+        const openRe = /<think\s*>/ig;
+        const closeRe = /<\/think\s*>/ig;
+        const ranges = buildFenceRanges(source);
+        let html = '';
+        let cursor = 0;
+        while (cursor < source.length) {
+            const openMatch = findTagOutsideFences(source, cursor, openRe, ranges);
+            if (!openMatch) {
+                html += renderMarkdown(source.slice(cursor));
+                break;
+            }
+            const openIndex = openMatch.index;
+            const openEnd = openMatch.end;
+            if (openIndex > cursor) {
+                html += renderMarkdown(source.slice(cursor, openIndex));
+            }
+            const closeMatch = findTagOutsideFences(source, openEnd, closeRe, ranges);
+            const closeIndex = closeMatch ? closeMatch.index : -1;
+            const thinkBody = closeIndex === -1
+                ? source.slice(openEnd)
+                : source.slice(openEnd, closeIndex);
+            const openAttr = defaultOpen ? ' open="open"' : '';
+            html += `<details class="think-block"${openAttr}><summary>Model thoughts</summary><div class="think-content">${renderMarkdown(thinkBody)}</div></details>`;
+            if (!closeMatch) {
+                break;
+            }
+            cursor = closeMatch.end;
+        }
+        return html;
+    }
+
+    function bindThinkToggles(container) {
+        if (!container) return;
+        const detailsNodes = Array.from(container.querySelectorAll('details.think-block'));
+        if (!detailsNodes.length) return;
+        const index = Number.parseInt(container.dataset.messageIndex || '', 10);
+        detailsNodes.forEach(details => {
+            details.addEventListener('toggle', () => {
+                if (!Number.isNaN(index)) {
+                    const targetMessage = state.messages[index];
+                    if (targetMessage) {
+                        targetMessage.thinkOpen = details.open;
+                        persistConversation();
+                    }
+                } else {
+                    container.dataset.thinkOpen = details.open ? 'true' : 'false';
+                }
+            });
+        });
+    }
+
     function applyMessageContent(target, role, text) {
         if (!target) return;
         if (role === 'assistant') {
             target.classList.add('markdown', 'markdown-body');
             target.classList.remove('plain-text');
-            target.innerHTML = renderMarkdown(text);
+            target.dataset.rawMarkdown = text || '';
+            const defaultOpen = resolveThinkDefaultOpen(target);
+            target.innerHTML = renderAssistantContent(text, defaultOpen);
+            bindThinkToggles(target);
             rehighlightCode(target);
         } else {
             target.classList.add('plain-text');
@@ -860,7 +1193,7 @@
     }
 
     function appendMessage(role, text, opts = {}) {
-        const { skipScroll = false, skipVisibilityUpdate = false, attachment = null, messageIndex = undefined } = opts;
+        const { skipScroll = false, skipVisibilityUpdate = false, attachment = null, messageIndex = undefined, toolCalls = null, toolResults = null } = opts;
         const entry = document.createElement('fieldset');
         entry.className = `chat-turn ${role}`;
         if (role === 'assistant' || role === 'user') {
@@ -871,6 +1204,8 @@
             legend.textContent = 'Assistant';
         } else if (role === 'user') {
             legend.textContent = 'User';
+        } else if (role === 'tool') {
+            legend.textContent = 'Tool';
         } else {
             legend.textContent = 'System';
         }
@@ -878,6 +1213,9 @@
 
         const body = document.createElement('div');
         body.className = 'chat-body';
+        if (typeof messageIndex === 'number') {
+            body.dataset.messageIndex = String(messageIndex);
+        }
         applyMessageContent(body, role, text);
         entry.appendChild(body);
 
@@ -886,7 +1224,6 @@
             attachmentContainer.appendChild(createAttachmentChip(attachment));
             entry.appendChild(attachmentContainer);
         }
-
         dom.messages.appendChild(entry);
         if (typeof opts.messageIndex === 'number') {
             entry.dataset.messageIndex = String(opts.messageIndex);
@@ -897,8 +1234,9 @@
             copyBtn.className = 'copy-button';
             copyBtn.title = 'Copy answer';
             copyBtn.innerHTML = '<span class="glyphicon glyphicon-copy" aria-hidden="true"></span>';
-            copyBtn.addEventListener('click', () => copyAssistant(body.textContent));
+            copyBtn.addEventListener('click', () => copyAssistant(body));
             entry.appendChild(copyBtn);
+            renderToolCallControls(entry, toolCalls, toolResults);
         }
         if (role === 'user' && typeof messageIndex === 'number') {
             const trimBtn = document.createElement('button');
@@ -926,24 +1264,116 @@
         return body;
     }
 
-    function clearAttachment() {
+    function renderToolCallControls(entry, toolCalls, toolResults, pendingToolCalls = []) {
+        if (!entry) return;
+        if (entry._toolcallOutsideClickHandler) {
+            document.removeEventListener('click', entry._toolcallOutsideClickHandler);
+            entry._toolcallOutsideClickHandler = null;
+        }
+        Array.prototype.slice.call(entry.children).forEach(node => {
+            if (node.classList && (node.classList.contains('toolcall-toolbar') || node.classList.contains('toolcalls-popover'))) {
+                node.remove();
+            }
+        });
+        if (!Array.isArray(toolCalls) || toolCalls.length === 0) return;
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'toolcall-toolbar';
+        const panels = [];
+        const resultsById = new Map();
+        const resultsByName = new Map();
+        if (Array.isArray(toolResults)) {
+            for (const result of toolResults) {
+                if (!result) continue;
+                if (result.id) resultsById.set(result.id, result);
+                if (result.tool_call_id) resultsById.set(result.tool_call_id, result);
+                const rname = result?.name || result?.function?.name;
+                if (rname && !resultsByName.has(rname)) resultsByName.set(rname, result);
+            }
+        }
+
+        for (let i = 0; i < toolCalls.length; i++) {
+            const call = toolCalls[i];
+            if (!call) continue;
+            const fnName = call?.function?.name || call?.name || 'tool';
+            const matchedResult = (call.id && resultsById.get(call.id)) || resultsByName.get(fnName) || null;
+            const pending = isPendingToolCall(call, pendingToolCalls);
+
+            const toolBtn = document.createElement('button');
+            toolBtn.type = 'button';
+            toolBtn.className = pending ? 'toolcalls-button pending' : 'toolcalls-button';
+            toolBtn.title = pending ? `Preparing tool: ${fnName}` : `Tool: ${fnName}`;
+            toolBtn.disabled = pending;
+            toolBtn.innerHTML = '<span class="glyphicon glyphicon-wrench" aria-hidden="true"></span>';
+
+            if (!pending) {
+                const toolPanel = createToolCallPanel(call, matchedResult, toolCalls.length, i);
+                toolPanel.style.display = 'none';
+                toolPanel.addEventListener('click', evt => evt.stopPropagation());
+                entry.appendChild(toolPanel);
+                panels.push(toolPanel);
+
+                toolBtn.addEventListener('click', event => {
+                    event.stopPropagation();
+                    const open = toolPanel.style.display !== 'none';
+                    for (const panel of panels) panel.style.display = 'none';
+                    toolPanel.style.display = open ? 'none' : 'block';
+                });
+            }
+            toolbar.appendChild(toolBtn);
+        }
+        entry.appendChild(toolbar);
+
+        entry._toolcallOutsideClickHandler = evt => {
+            if (!entry.contains(evt.target)) {
+                for (const panel of panels) panel.style.display = 'none';
+            }
+        };
+        document.addEventListener('click', entry._toolcallOutsideClickHandler);
+    }
+
+    function isPendingToolCall(call, pendingToolCalls) {
+        if (!call || !Array.isArray(pendingToolCalls)) return false;
+        return pendingToolCalls.some(pending => sameToolCall(call, pending));
+    }
+
+    function sameToolCall(a, b) {
+        if (!a || !b) return false;
+        if (a.id && b.id) return a.id === b.id;
+        const an = a?.function?.name || a?.name || '';
+        const bn = b?.function?.name || b?.name || '';
+        const aa = a?.function?.arguments || a?.arguments || '';
+        const ba = b?.function?.arguments || b?.arguments || '';
+        return an === bn && aa === ba;
+    }
+
+    function clearAttachment(options = {}) {
+        const { applyDefault = true } = options;
         state.attachment = null;
-        state.searchMode = false;
+        state.searchMode = SEARCH_DEFAULTS.none;
         dom.fileInput.value = '';
         dom.attachmentFilename.textContent = 'Attach PNG/JPG or text (.txt/.md/.tex)';
         dom.attachmentRow.classList.remove('has-attachment');
         dom.attachmentRow.classList.remove('search-mode');
+        dom.searchButton?.classList.remove('button-active');
+        dom.addFileButton?.classList.remove('button-active');
         closeAttachmentPopover();
+        if (applyDefault) {
+            applySearchDefaultToComposer();
+        }
     }
 
     function setComposerAttachment(attachment) {
-        state.searchMode = false;
+        state.searchMode = SEARCH_DEFAULTS.none;
         dom.attachmentRow.classList.remove('search-mode');
+        dom.searchButton?.classList.remove('button-active');
         state.attachment = attachment ? cloneAttachment(attachment) : null;
         if (state.attachment) {
             dom.attachmentFilename.textContent = `Attach File: ${state.attachment.name || 'Attachment'}`;
             dom.attachmentRow.classList.add('has-attachment');
+            dom.addFileButton?.classList.add('button-active');
         } else {
+            dom.addFileButton?.classList.remove('button-active');
             clearAttachment();
         }
     }
@@ -958,9 +1388,154 @@
         }
     }
 
-    async function copyAssistant(text) {
+    function setSearchModeActive(mode) {
+        let nextMode = mode;
+        if (mode === true) {
+            // validate against available options
+            if (P2P_MODE) {
+                nextMode = state.searchDefault === SEARCH_DEFAULTS.none ? SEARCH_DEFAULTS.local : state.searchDefault;
+            } else {
+                nextMode = state.searchDefault === SEARCH_DEFAULTS.global ? SEARCH_DEFAULTS.local : state.searchDefault;
+            }
+        }
+        if (!nextMode || nextMode === false) {
+            nextMode = SEARCH_DEFAULTS.none;
+        }
+        // reject global mode when not in P2P
+        if (!P2P_MODE && nextMode === SEARCH_DEFAULTS.global) {
+            nextMode = SEARCH_DEFAULTS.local;
+        }
+        state.searchMode = nextMode;
+        state.attachment = null;
+        dom.fileInput.value = '';
+        dom.attachmentRow.classList.remove('has-attachment');
+        dom.searchButton?.classList.toggle('button-active', state.searchMode !== SEARCH_DEFAULTS.none);
+        dom.addFileButton?.classList.remove('button-active');
+        if (state.searchMode !== SEARCH_DEFAULTS.none) {
+            dom.attachmentRow.classList.add('search-mode');
+            dom.attachmentFilename.textContent = 'Attach PNG/JPG or text (.txt/.md/.tex)';
+        } else {
+            dom.attachmentRow.classList.remove('search-mode');
+            dom.attachmentFilename.textContent = 'Attach PNG/JPG or text (.txt/.md/.tex)';
+        }
+    }
+
+    function applySearchDefaultToComposer() {
+        if (!dom.attachmentRow || state.attachment) return;
+        if (state.searchDefault !== SEARCH_DEFAULTS.none) {
+            // validate search default against available options
+            const validDefault = P2P_MODE ? state.searchDefault : state.searchDefault === SEARCH_DEFAULTS.global ? SEARCH_DEFAULTS.local : state.searchDefault;
+            setSearchModeActive(validDefault);
+        } else {
+            setSearchModeActive(SEARCH_DEFAULTS.none);
+        }
+    }
+
+    function updateSearchDefaultSlider() {
+        if (!dom.searchDefaultOptions) return;
+        // count only visible inputs (exclude hidden global option)
+        const inputs = Array.from(dom.searchDefaultOptions.querySelectorAll('input[name="searchDefault"]'));
+        const visibleInputs = inputs.filter(input => {
+            if (input === dom.searchDefaultGlobal) {
+                return dom.searchDefaultOptions.classList.contains('has-global');
+            }
+            return true;
+        });
+        const activeIndex = visibleInputs.findIndex(input => input.checked);
+        const segments = visibleInputs.length || 2;
+        dom.searchDefaultOptions.style.setProperty('--segments', segments);
+        // map checked input to its index among visible inputs
+        let displayIndex = 0;
+        for (const input of inputs) {
+            if (input === dom.searchDefaultGlobal && !dom.searchDefaultOptions.classList.contains('has-global')) {
+                continue;
+            }
+            if (input.checked) break;
+            displayIndex++;
+        }
+        dom.searchDefaultOptions.style.setProperty('--active', displayIndex);
+    }
+
+    async function getVfsClient() {
+        if (window.vfs) return window.vfs;
+        if (window.vfsReady) return await window.vfsReady;
+        throw new Error('VFS unavailable');
+    }
+
+    async function readVfsJson(path) {
         try {
-            await navigator.clipboard.writeText(text || '');
+            const vfs = await getVfsClient();
+            const value = await vfs.get(path);
+            if (value && typeof value === 'object') return value;
+            if (typeof value === 'string' && value.trim()) {
+                if (value.trim() === '[object Object]') return null;
+                try {
+                    return JSON.parse(value);
+                } catch (err) {
+                    return null;
+                }
+            }
+            return null;
+        } catch (err) {
+            if (String(err) === 'Key not found') return null;
+            throw err;
+        }
+    }
+
+    async function writeVfsJson(path, value) {
+        const vfs = await getVfsClient();
+        await vfs.put(path, JSON.stringify(value, null, 2));
+    }
+
+    async function removeVfsPath(path) {
+        const vfs = await getVfsClient();
+        await vfs.rm(path);
+    }
+
+    function persistSearchDefault() {
+        writeVfsJson(SETTINGS_VFS_PATH, { search_default: state.searchDefault }).catch(err => {
+            console.warn('Failed to persist search default', err);
+        });
+    }
+
+    async function loadSearchDefault() {
+        let stored = null;
+        try {
+            const settings = await readVfsJson(SETTINGS_VFS_PATH);
+            stored = settings?.search_default || null;
+        } catch (err) {
+            console.warn('Failed to load search default', err);
+        }
+        if (stored === 'none') stored = SEARCH_DEFAULTS.none;
+        // validate stored default against available options
+        if (!P2P_MODE && stored === SEARCH_DEFAULTS.global) {
+            stored = SEARCH_DEFAULTS.local;
+        }
+        if (stored && Object.values(SEARCH_OPTIONS).includes(stored)) {
+            state.searchDefault = stored;
+        }
+        // update radio buttons to reflect stored state
+        if (dom.searchDefaultNone && state.searchDefault === SEARCH_DEFAULTS.none) {
+            dom.searchDefaultNone.checked = true;
+        } else if (dom.searchDefaultLocal && state.searchDefault === SEARCH_DEFAULTS.local) {
+            dom.searchDefaultLocal.checked = true;
+        } else if (dom.searchDefaultGlobal && !P2P_MODE) {
+            // global not available, fallback to local
+            dom.searchDefaultLocal.checked = true;
+            state.searchDefault = SEARCH_DEFAULTS.local;
+        } else if (dom.searchDefaultGlobal && state.searchDefault === SEARCH_DEFAULTS.global) {
+            dom.searchDefaultGlobal.checked = true;
+        }
+        updateSearchDefaultSlider();
+        applySearchDefaultToComposer();
+    }
+
+    async function copyAssistant(target) {
+        const raw = target?.dataset?.rawMarkdown;
+        const source = typeof raw === 'string' ? raw : (target?.textContent || '');
+        const cleaned = stripThinkBlocks(source);
+        try {
+            await navigator.clipboard.writeText(cleaned || '');
         } catch (err) {
             console.warn('Clipboard copy failed', err);
         }
@@ -976,7 +1551,7 @@
         persistConversation();
         updateClearChatVisibility();
         updateSystemToggleButton();
-        setComposerAttachment(targetMessage?.attachment || null);
+        setComposerAttachment(inferAttachmentFromContent(targetMessage?.content) || null);
         dom.input.value = reuseText || '';
         resizeComposer();
         showComposer();
@@ -1033,7 +1608,9 @@
         state.messages = [];
         state.assistantSeen = false;
         state.showSystem = false;
-        localStorage.removeItem(STORAGE_KEY);
+        removeVfsPath(CHAT_VFS_PATH).catch(err => {
+            console.warn('Failed to clear chat history', err);
+        });
         closeAttachmentPopover();
         closeAttachmentModal();
         updateClearChatVisibility();
@@ -1067,7 +1644,7 @@
         }
         for (const msg of payload.messages) {
             if (!msg?.role || msg.content === undefined) continue;
-            state.messages.push({ role: msg.role, content: msg.content });
+            state.messages.push({ ...msg });
         }
         renderConversation();
         persistConversation();
@@ -1093,9 +1670,16 @@
     }
 
     async function streamChat(userMessage, assistantNode, options = {}) {
-        const { onFirstToken, includeUserInPayload = true, pushUserToState = true } = options;
+        const { onFirstToken, includeUserInPayload = true, pushUserToState = true, currentUserIndex = -1 } = options;
+        const requestStart = performance.now();
         ensureSystemMessage();
-        const sanitizedMessages = state.messages.map(stripMessageForApi).filter(Boolean);
+        const sanitizedMessages = state.messages
+            .map((msg, index) => {
+                const hasAttachment = msg?.role === 'user' && Array.isArray(msg.content);
+                const textOnly = index !== currentUserIndex && !hasAttachment;
+                return stripMessageForApi(msg, { textOnly });
+            })
+            .filter(Boolean);
         const sanitizedUserMessage = includeUserInPayload ? stripMessageForApi(userMessage) : null;
         const payload = {
             model: state.config.model,
@@ -1120,9 +1704,18 @@
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let assistantText = '';
+        let roundToolCalls = [];
+        let collectedToolCalls = [];
+        let collectedToolResults = [];
         let sawFirstDelta = false;
         let focusShown = false;
         let searchApplied = false;
+        let thinkAutoClosed = false;
+        let thinkAutoCloseFired = false;
+        let thinkAutoCloseTimer = null;
+        if (assistantNode) {
+            assistantNode.dataset.streaming = 'true';
+        }
         if (typeof onFirstToken === 'function' && !focusShown) {
             focusShown = true;
             onFirstToken();
@@ -1140,14 +1733,15 @@
             const textContent = base64ToUtf8(searchBase64);
             for (let i = state.messages.length - 1; i >= 0; i--) {
                 const msg = state.messages[i];
-                if (msg && msg.role === 'user' && msg.search) {
-                    msg.attachment = {
+                if (msg && msg.role === 'user' && msg.search && msg.search !== SEARCH_DEFAULTS.none) {
+                    const attachment = {
                         kind: 'text',
                         name: searchName,
                         dataUrl,
                         mime: 'text/markdown',
                         textContent
                     };
+                    msg.content = buildContentWithAttachment(messageText(msg.content), attachment);
                     delete msg.search;
                     searchApplied = true;
                     break;
@@ -1164,6 +1758,22 @@
             }
         };
 
+        const renderLiveToolControls = () => {
+            if (!assistantNode || collectedToolResults.length === 0 || collectedToolCalls.length === 0) return;
+            const entry = assistantNode.closest('.chat-turn.assistant');
+            if (!entry) return;
+            renderToolCallControls(entry, collectedToolCalls, collectedToolResults);
+        };
+
+        const renderPendingToolControls = () => {
+            if (!assistantNode || roundToolCalls.length === 0) return;
+            const entry = assistantNode.closest('.chat-turn.assistant');
+            if (!entry) return;
+            const pendingCalls = normalizeToolCalls(roundToolCalls);
+            const visibleCalls = appendToolCalls(collectedToolCalls, pendingCalls);
+            renderToolCallControls(entry, visibleCalls, collectedToolResults, pendingCalls);
+        };
+
         const processLine = line => {
             const trimmed = (line || '').trim();
             if (!trimmed) return false;
@@ -1173,19 +1783,88 @@
             if (!clean) return false;
             try {
                 const parsed = JSON.parse(clean);
+                let toolMetadataChanged = false;
                 applySearchAttachment(parsed);
-                const delta = parsed?.choices?.[0]?.delta?.content;
+                if (Array.isArray(parsed['tool-calls']) && parsed['tool-calls'].length > 0) {
+                    const injectedToolCalls = normalizeToolCalls(parsed['tool-calls']);
+                    if (injectedToolCalls.length > 0) {
+                        collectedToolCalls = appendToolCalls(collectedToolCalls, injectedToolCalls);
+                        roundToolCalls = [];
+                        toolMetadataChanged = true;
+                    }
+                }
+                if (Array.isArray(parsed['tool-results']) && parsed['tool-results'].length > 0) {
+                    const normalizedResults = normalizeToolResults(parsed['tool-results']);
+                    collectedToolResults = collectedToolResults.concat(normalizedResults);
+                    toolMetadataChanged = true;
+                }
+                if (toolMetadataChanged) {
+                    renderLiveToolControls();
+                }
+                const choice = parsed?.choices?.[0];
+                const delta = choice?.delta;
+                const finishReason = choice?.finish_reason;
+                const toolDelta = delta?.tool_calls;
+                if (toolDelta) {
+                    roundToolCalls = mergeToolCalls(roundToolCalls, toolDelta);
+                    renderPendingToolControls();
+                }
+                if (delta?.function_call) {
+                    roundToolCalls = mergeToolCalls(roundToolCalls, [{
+                        index: 0,
+                        type: 'function',
+                        function: delta.function_call
+                    }]);
+                    renderPendingToolControls();
+                }
+                if (finishReason === 'tool_calls' || finishReason === 'function_call') {
+                    const finalized = normalizeToolCalls(roundToolCalls);
+                    if (finalized.length) {
+                        collectedToolCalls = collectedToolCalls.concat(finalized);
+                    }
+                    roundToolCalls = [];
+                }
+                const contentDelta = delta?.content;
                 if (delta) {
                     if (!sawFirstDelta) {
                         sawFirstDelta = true;
-                        applyMessageContent(assistantNode, 'assistant', '');
+                        applyMessageContent(assistantNode, 'assistant', 'waiting for an answer...');
                         if (!focusShown && typeof onFirstToken === 'function') {
                             focusShown = true;
                             onFirstToken();
                         }
                     }
-                    assistantText += delta;
-                    applyMessageContent(assistantNode, 'assistant', assistantText);
+                    if (contentDelta) {
+                        assistantText += contentDelta;
+                        assistantText = stripToolProtocolMarkup(assistantText);
+                    }
+                    if (!thinkAutoClosed && hasThinkCloseOutsideFences(assistantText)) {
+                        thinkAutoClosed = true;
+                        if (assistantNode) {
+                            assistantNode.dataset.thinkAutoClosing = 'true';
+                        }
+                        if (thinkAutoCloseTimer) {
+                            clearTimeout(thinkAutoCloseTimer);
+                        }
+                        thinkAutoCloseTimer = window.setTimeout(() => {
+                            thinkAutoCloseFired = true;
+                            if (assistantNode) {
+                                assistantNode.dataset.thinkAutoClosing = 'false';
+                                assistantNode.dataset.thinkAutoClosed = 'true';
+                                assistantNode.dataset.thinkOpen = 'false';
+                                applyMessageContent(assistantNode, 'assistant', assistantText);
+                            }
+                            const last = state.messages[state.messages.length - 1];
+                            if (last && last.role === 'assistant' && last.content === assistantText) {
+                                last.thinkOpen = false;
+                                persistConversation();
+                                renderConversation({ skipScroll: true });
+                            }
+                        }, 2000);
+                    }
+                    if (assistantText) {
+                        applyMessageContent(assistantNode, 'assistant', assistantText);
+                    }
                     performAutoScroll();
                 }
             } catch (err) {
@@ -1224,7 +1903,28 @@
         if (pushUserToState) {
             state.messages.push(userMessage);
         }
-        state.messages.push({ role: 'assistant', content: assistantText });
+        const explicitThinkOpen = assistantNode?.dataset?.thinkOpen;
+        const storedThinkOpen = explicitThinkOpen === 'true'
+            ? true
+            : explicitThinkOpen === 'false'
+                ? false
+                : (thinkAutoClosed && !thinkAutoCloseFired);
+        const normalizedToolCalls = normalizeToolCalls(collectedToolCalls.concat(roundToolCalls));
+        const assistantMessage = {
+            role: 'assistant',
+            content: assistantText,
+            thinkOpen: storedThinkOpen
+        };
+        if (normalizedToolCalls.length) {
+            assistantMessage.tool_calls = normalizedToolCalls;
+            if (collectedToolResults.length) {
+                assistantMessage.tool_results = collectedToolResults;
+            }
+            assistantMessage.display = assistantText && assistantText.trim()
+                ? assistantText
+                : `Tool call: ${normalizedToolCalls.map(call => call?.function?.name || 'tool').join(', ')}`;
+        }
+        state.messages.push(assistantMessage);
         state.assistantSeen = true;
         persistConversation();
         updateClearChatVisibility();
@@ -1239,35 +1939,65 @@
         dom.input.style.height = `${Math.max(minHeight, measured)}px`;
     }
 
-    function buildUserMessage(promptText) {
-        if (state.attachment) {
-            const parts = [{ type: 'text', text: promptText }];
-            if (state.attachment.kind === 'image' && state.attachment.dataUrl) {
-                parts.push({
-                    type: 'image_url',
-                    image_url: { url: state.attachment.dataUrl },
-                    filename: state.attachment.name
-                });
-            } else if (state.attachment.kind === 'text' && state.attachment.dataUrl) {
-                parts.push({
-                    type: 'image_url',
-                    image_url: { url: state.attachment.dataUrl },
-                    filename: state.attachment.name
-                });
-            }
-            return {
-                role: 'user',
-                content: parts,
-                search: !!state.searchMode
-            };
+    function buildContentWithAttachment(promptText, attachment) {
+        const parts = [{ type: 'text', text: promptText }];
+        if (attachment?.dataUrl) {
+            parts.push({
+                type: 'image_url',
+                image_url: { url: attachment.dataUrl },
+                filename: attachment.name
+            });
         }
-        return { role: 'user', content: promptText, search: !!state.searchMode };
+        return parts;
     }
 
-    function stripMessageForApi(message) {
+    function buildUserMessage(promptText) {
+        if (state.attachment) {
+            const message = { role: 'user', content: buildContentWithAttachment(promptText, state.attachment) };
+            if (state.searchMode !== SEARCH_DEFAULTS.none) {
+                message.search = state.searchMode;
+            }
+            return message;
+        }
+        const message = { role: 'user', content: promptText };
+        if (state.searchMode !== SEARCH_DEFAULTS.none) {
+            message.search = state.searchMode;
+        }
+        return message;
+    }
+
+    function stripMessageForApi(message, options = {}) {
         if (!message) return null;
-        const sanitized = { role: message.role, content: message.content };
-        if (message.search) sanitized.search = true;
+        const { textOnly = false } = options;
+        let content = message.content;
+        if (textOnly) {
+            content = messageText(content);
+        }
+        if (message.role === 'assistant') {
+            if (textOnly || typeof content === 'string') {
+                content = stripToolProtocolMarkup(stripThinkBlocks(String(content || '')));
+            } else {
+                content = stripThinkFromContent(content);
+            }
+        }
+        const sanitized = { role: message.role, content };
+        if (message.tool_calls) {
+            sanitized.tool_calls = message.tool_calls;
+        }
+        if (message.tool_results) {
+            sanitized.tool_results = message.tool_results;
+        }
+        if (message.tool_call_id) {
+            sanitized.tool_call_id = message.tool_call_id;
+        }
+        if (message.name) {
+            sanitized.name = message.name;
+        }
+        if (message.search === true) {
+            sanitized.search = SEARCH_DEFAULTS.local;
+        } else if (message.search === SEARCH_DEFAULTS.local || message.search === SEARCH_DEFAULTS.global) {
+            sanitized.search = message.search;
+        }
         return sanitized;
     }
 
@@ -1292,6 +2022,62 @@
         return '';
     }
 
+    function initialAssistantPlaceholder(message) {
+        return message?.search && message.search !== SEARCH_DEFAULTS.none
+            ? 'searching for content...'
+            : 'waiting for an answer...';
+    }
+
+    function inferAttachmentFromContent(content) {
+        if (!Array.isArray(content)) return null;
+        const mediaPart = content.find(part => part?.type === 'image_url' && part?.image_url?.url);
+        if (!mediaPart) return null;
+        const dataUrl = String(mediaPart.image_url.url || '');
+        const mimeMatch = dataUrl.match(/^data:([^;]+);/i);
+        const mime = mimeMatch?.[1] || 'application/octet-stream';
+        const name = mediaPart.filename || 'Attachment';
+        const kind = mime.startsWith('image/') ? 'image' : 'text';
+        return { kind, name, mime, dataUrl };
+    }
+
+    function attachmentTextContent(attachment) {
+        if (!attachment || attachment.kind !== 'text') return '';
+        if (typeof attachment.textContent === 'string' && attachment.textContent) return attachment.textContent;
+        if (!attachment.dataUrl || !attachment.dataUrl.startsWith('data:')) return '';
+        const base64 = attachment.dataUrl.split(',', 2)[1] || '';
+        return base64 ? base64ToUtf8(base64) : '';
+    }
+
+    function parseStructuredToolResult(result) {
+        const raw = result?.content || result?.function?.content || '';
+        if (typeof raw !== 'string' || !raw.trim()) return null;
+        try {
+            return JSON.parse(raw);
+        } catch (err) {
+            return null;
+        }
+    }
+
+    function inferAttachmentFromToolResult(result) {
+        const payload = parseStructuredToolResult(result);
+        const name = payload?.['search-filename'];
+        const base64 = payload?.['search-text-base64'];
+        if (!name || !base64) return null;
+        return {
+            kind: 'text',
+            name,
+            dataUrl: `data:text/markdown;base64,${base64}`,
+            mime: 'text/markdown',
+            textContent: base64ToUtf8(base64)
+        };
+    }
+
+    function messageDisplayText(message) {
+        if (!message) return '';
+        if (typeof message.display === 'string') return message.display;
+        return messageText(message.content);
+    }
+
     function renderConversation(options = {}) {
         const { skipScroll = false } = options;
         closeAttachmentPopover();
@@ -1300,7 +2086,7 @@
         for (let i = 0; i < state.messages.length; i++) {
             const msg = state.messages[i];
             if (msg.role === 'system' && !state.showSystem) continue;
-            appendMessage(msg.role, messageText(msg.content), { skipScroll: true, skipVisibilityUpdate: true, messageIndex: i, attachment: msg.attachment });
+            appendMessage(msg.role, messageDisplayText(msg), { skipScroll: true, skipVisibilityUpdate: true, messageIndex: i, attachment: inferAttachmentFromContent(msg.content), toolCalls: msg.tool_calls, toolResults: msg.tool_results });
         }
         updateClearChatVisibility();
         updateSystemToggleButton();
@@ -1309,35 +2095,156 @@
         }
     }
 
-    function persistConversation() {
+    function normalizeToolCalls(calls) {
+        if (!Array.isArray(calls)) return [];
+        const stamp = Date.now();
+        return calls
+            .filter(Boolean)
+            .map((call, index) => {
+                const fn = call.function || {};
+                return {
+                    id: call.id || `toolcall_${stamp}_${index}`,
+                    type: call.type || 'function',
+                    function: {
+                        name: fn.name || call.name || 'unknown',
+                        arguments: typeof fn.arguments === 'string' ? fn.arguments : (call.arguments || '')
+                    }
+                };
+            });
+    }
+
+    function normalizeToolResults(results) {
+        if (!Array.isArray(results)) return [];
+        const stamp = Date.now();
+        return results
+            .filter(Boolean)
+            .map((result, index) => ({
+                id: result.id || result.tool_call_id || `toolres_${stamp}_${index}`,
+                tool_call_id: result.tool_call_id || result.id || '',
+                name: result.name || result?.function?.name || 'unknown',
+                content: typeof result.content === 'string'
+                    ? result.content
+                    : (result?.function?.content ? String(result.function.content) : '')
+            }));
+    }
+
+    function appendToolCalls(existing, incoming) {
+        const result = Array.isArray(existing) ? [...existing] : [];
+        if (!Array.isArray(incoming)) return result;
+        for (const call of incoming) {
+            if (!call) continue;
+            const id = call.id || '';
+            if (id && result.some(existingCall => existingCall && existingCall.id === id)) continue;
+            if (!id && result.some(existingCall => sameToolCall(existingCall, call))) continue;
+            result.push(call);
+        }
+        return result;
+    }
+
+    function mergeToolCalls(existing, deltaCalls) {
+        const result = Array.isArray(existing) ? [...existing] : [];
+        if (!Array.isArray(deltaCalls)) return result;
+        for (const delta of deltaCalls) {
+            if (!delta) continue;
+            const index = readToolCallIndex(delta);
+            if (index === null || index < 0) continue;
+            if (!result[index]) {
+                result[index] = { id: '', type: delta.type || 'function', function: { name: '', arguments: '' } };
+            }
+            const target = result[index];
+            if (delta.id) target.id = delta.id;
+            if (delta.type) target.type = delta.type;
+            if (delta.function?.name) target.function.name = delta.function.name;
+            if (typeof delta.function?.arguments === 'string' && delta.function.arguments.length > 0) {
+                target.function.arguments = (target.function.arguments || '') + delta.function.arguments;
+            }
+        }
+        return result;
+    }
+
+    function readToolCallIndex(delta) {
+        if (!delta || typeof delta !== 'object' || !Object.prototype.hasOwnProperty.call(delta, 'index')) {
+            return null;
+        }
+        return Number.isInteger(delta.index) ? delta.index : null;
+    }
+
+    function formatToolArguments(raw) {
+        if (typeof raw !== 'string' || !raw.trim()) return '(no arguments)';
         try {
-            const payload = {
-                model: state.config.model,
-                messages: state.messages
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            return JSON.stringify(JSON.parse(raw), null, 2);
         } catch (err) {
-            console.warn('Failed to persist conversation', err);
+            return raw;
         }
     }
 
-    function hydrateConversation() {
+    function createToolCallPanel(call, result, totalCount, index) {
+        const panel = document.createElement('div');
+        panel.className = 'toolcalls-popover';
+        panel.style.right = `${36 + (index * 28)}px`;
+
+        const header = document.createElement('div');
+        header.className = 'toolcalls-popover-header';
+        header.textContent = `Tool ${index + 1}/${totalCount}`;
+        panel.appendChild(header);
+
+        const list = document.createElement('div');
+        list.className = 'toolcalls-list';
+        const item = document.createElement('div');
+        item.className = 'toolcall-item';
+
+        const fnName = call?.function?.name || call?.name || 'unknown';
+        const name = document.createElement('div');
+        name.className = 'toolcall-name';
+        name.textContent = fnName;
+        item.appendChild(name);
+
+        const args = document.createElement('pre');
+        args.className = 'toolcall-args';
+        args.textContent = formatToolArguments(call?.function?.arguments || call?.arguments || '');
+        item.appendChild(args);
+
+        if (result) {
+            const responseTitle = document.createElement('div');
+            responseTitle.className = 'toolcall-result-title';
+            responseTitle.textContent = 'Response';
+            item.appendChild(responseTitle);
+
+            const attachment = inferAttachmentFromToolResult(result);
+            if (attachment) {
+                const attachmentContainer = document.createElement('div');
+                attachmentContainer.appendChild(createAttachmentChip(attachment));
+                item.appendChild(attachmentContainer);
+            }
+
+            const responseBody = document.createElement('pre');
+            responseBody.className = 'toolcall-result';
+            responseBody.textContent = attachment
+                ? attachmentTextContent(attachment)
+                : formatToolArguments(result?.content || result?.function?.content || '');
+            item.appendChild(responseBody);
+        }
+
+        list.appendChild(item);
+        panel.appendChild(list);
+        return panel;
+    }
+
+    function persistConversation() {
+        const payload = buildRequestPayload();
+        writeVfsJson(CHAT_VFS_PATH, payload).catch(err => {
+            console.warn('Failed to persist conversation', err);
+        });
+    }
+
+    async function hydrateConversation() {
         let stored = null;
         try {
-            stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            stored = await readVfsJson(CHAT_VFS_PATH);
         } catch (err) {
             console.warn('Failed to parse stored conversation', err);
         }
-        if (Array.isArray(stored) && stored.length) {
-            for (const pair of stored) {
-                if (pair?.user) {
-                    state.messages.push({ role: 'user', content: pair.user });
-                }
-                if (pair?.assistant) {
-                    state.messages.push({ role: 'assistant', content: pair.assistant });
-                }
-            }
-        } else if (stored && Array.isArray(stored.messages)) {
+        if (stored && Array.isArray(stored.messages)) {
             state.messages = stored.messages.map(msg => ({ ...msg }));
             if (stored.model) {
                 state.config.model = stored.model;
@@ -1483,7 +2390,7 @@
             };
         }
         if (attachment.kind === 'text') {
-            const { snippet, truncated } = buildTextPreview(attachment.textContent || '');
+            const { snippet, truncated } = buildTextPreview(attachmentTextContent(attachment));
             return {
                 kind: isMarkdown || isTex ? 'markdown' : 'text',
                 name: attachment.name,
@@ -1547,7 +2454,7 @@
                 document.body.removeChild(link);
                 return;
             }
-            const text = attachment.textContent || '';
+            const text = attachmentTextContent(attachment);
             const blob = new Blob([text], { type: attachment.mime || 'text/plain' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -1592,7 +2499,7 @@
             `);
             popup.document.close();
         } else if (attachment.kind === 'text') {
-            const blob = new Blob([attachment.textContent || ''], { type: attachment.mime || 'text/plain' });
+            const blob = new Blob([attachmentTextContent(attachment)], { type: attachment.mime || 'text/plain' });
             const url = URL.createObjectURL(blob);
             window.open(url, '_blank');
             setTimeout(() => URL.revokeObjectURL(url), 2000);
@@ -1643,7 +2550,7 @@
             img.style.display = 'block';
             body.appendChild(img);
         } else {
-            const content = attachment?.textContent || preview.text || '';
+            const content = attachmentTextContent(attachment) || preview.text || '';
             if (preview.kind === 'markdown' && markdownSupport.enabled) {
                 const div = document.createElement('div');
                 div.innerHTML = renderMarkdown(content);
@@ -1726,7 +2633,7 @@
         }
         if (preview.kind === 'text' || preview.kind === 'markdown') {
             actions.appendChild(createActionButton('glyphicon-copy', 'Copy snippet', () => copyToClipboard(preview.text || '')));
-            actions.appendChild(createActionButton('glyphicon-list-alt', 'Copy all', () => copyToClipboard(attachment.textContent || preview.text || '')));
+            actions.appendChild(createActionButton('glyphicon-list-alt', 'Copy all', () => copyToClipboard(attachmentTextContent(attachment) || preview.text || '')));
         }
         popover.appendChild(actions);
 
@@ -1808,29 +2715,21 @@
         const prompt = dom.input.value.trim();
         if (!prompt) return;
         ensureSystemMessage();
-        const userAttachment = cloneAttachment(state.attachment);
         const userMessage = buildUserMessage(prompt);
-        if (userAttachment) {
-            userMessage.attachment = userAttachment;
-        }
         // add user message to state immediately so edit/trim is available right away
-        state.messages.push({
-            role: 'user',
-            content: userMessage.content,
-            attachment: userAttachment,
-            search: !!state.searchMode
-        });
+        const userEntry = { ...userMessage };
+        state.messages.push(userEntry);
         const userIndex = state.messages.length - 1;
         const preview = formatUserPreview(prompt);
         state.busy = true;
         dom.sendButton.disabled = true;
-        appendMessage('user', preview, { attachment: userAttachment, messageIndex: userIndex });
+        appendMessage('user', preview, { attachment: inferAttachmentFromContent(userEntry.content), messageIndex: userIndex });
         dom.input.value = '';
         clearAttachment();
         resizeComposer();
-        const assistantNode = appendMessage('assistant', 'waiting for an answer...');
+        const assistantNode = appendMessage('assistant', initialAssistantPlaceholder(userMessage));
         try {
-            await streamChat(userMessage, assistantNode, { onFirstToken: showComposer, includeUserInPayload: false, pushUserToState: false });
+            await streamChat(userMessage, assistantNode, { onFirstToken: showComposer, includeUserInPayload: false, pushUserToState: false, currentUserIndex: userIndex });
         } catch (err) {
             appendMessage('system', `Error: ${err.message}`);
             showComposer();
@@ -1842,19 +2741,32 @@
     });
 
     dom.addFileButton.addEventListener('click', () => {
+        if (state.attachment) {
+            clearAttachment({ applyDefault: false });
+            return;
+        }
+        if (state.searchMode !== SEARCH_DEFAULTS.none) {
+            setSearchModeActive(SEARCH_DEFAULTS.none);
+        }
+        dom.addFileButton.classList.add('button-active');
         dom.fileInput.click();
+        window.setTimeout(() => {
+            window.addEventListener('focus', () => {
+                if (!state.attachment && !dom.fileInput.value) {
+                    dom.addFileButton.classList.remove('button-active');
+                }
+            }, { once: true });
+        }, 0);
     });
     dom.searchButton?.addEventListener('click', () => {
-        state.searchMode = true;
-        state.attachment = null;
-        dom.attachmentRow.classList.remove('has-attachment');
-        dom.attachmentRow.classList.add('search-mode');
-        dom.attachmentFilename.textContent = 'Attach Search Results';
+        if (state.searchMode !== SEARCH_DEFAULTS.none) {
+            clearAttachment({ applyDefault: false });
+            return;
+        }
+        const mode = state.searchDefault === SEARCH_DEFAULTS.none ? SEARCH_DEFAULTS.local : state.searchDefault;
+        setSearchModeActive(mode);
     });
     dom.fileInput.addEventListener('change', handleFileChange);
-    dom.clearFileButton.addEventListener('click', () => {
-        clearAttachment();
-    });
     dom.clearChatButton?.addEventListener('click', clearChatHistory);
     dom.downloadChatButton?.addEventListener('click', downloadChat);
     dom.uploadChatButton?.addEventListener('click', () => dom.uploadChatInput?.click());
@@ -1862,6 +2774,16 @@
     dom.toggleSystemButton?.addEventListener('click', () => {
         state.showSystem = !state.showSystem;
         renderConversation();
+    });
+    dom.searchDefaultOptions?.addEventListener('change', event => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (target.name !== 'searchDefault') return;
+        if (!Object.values(SEARCH_OPTIONS).includes(target.value)) return;
+        state.searchDefault = target.value;
+        updateSearchDefaultSlider();
+        persistSearchDefault();
+        applySearchDefaultToComposer();
     });
     window.addEventListener('scroll', closeAttachmentPopover);
 
@@ -1902,10 +2824,20 @@
     });
     window.addEventListener('resize', resizeComposer);
 
-    hydrateConversation();
-    updateSystemToggleButton();
-    resizeComposer();
-    updateClearChatVisibility();
+    async function initializeChat() {
+        await loadSearchDefault();
+        await hydrateConversation();
+        updateSystemToggleButton();
+        resizeComposer();
+        updateClearChatVisibility();
+    }
+
+    initializeChat().catch(err => {
+        console.warn('Failed to initialize chat from VFS', err);
+        updateSystemToggleButton();
+        resizeComposer();
+        updateClearChatVisibility();
+    });
     </script>
 
     #%env/templates/footer.template%#

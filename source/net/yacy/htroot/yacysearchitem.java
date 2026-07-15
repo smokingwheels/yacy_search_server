@@ -27,7 +27,6 @@
 package net.yacy.htroot;
 
 import java.awt.Dimension;
-import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URLEncoder;
@@ -36,7 +35,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
-import java.util.Locale;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.TreeSet;
@@ -55,11 +53,8 @@ import net.yacy.cora.protocol.RequestHeader.FileType;
 import net.yacy.cora.util.ConcurrentLog;
 import net.yacy.cora.util.Memory;
 import net.yacy.crawler.data.Cache;
-import net.yacy.crawler.data.Transactions;
-import net.yacy.crawler.data.Transactions.State;
 import net.yacy.crawler.retrieval.Response;
 import net.yacy.data.URLLicense;
-import net.yacy.data.UserDB;
 import net.yacy.document.parser.html.IconEntry;
 import net.yacy.http.servlets.TemplateMissingParameterException;
 import net.yacy.kelondro.data.meta.URIMetadataNode;
@@ -107,16 +102,13 @@ public class yacysearchitem {
         final String eventID = post.get("eventID", "");
         final boolean adminAuthenticated = sb.verifyAuthentication(header);
 
-	final UserDB.Entry user = sb.userDB != null ? sb.userDB.getUser(header) : null;
-	final boolean authenticated = adminAuthenticated || user != null;
-
-        final boolean extendedSearchRights = adminAuthenticated || (user != null && user.hasRight(UserDB.AccessRight.EXTENDED_SEARCH_RIGHT));
-        //final boolean bookmarkRights = adminAuthenticated || (user != null && user.hasRight(UserDB.AccessRight.BOOKMARK_RIGHT));
+        final boolean authenticated = adminAuthenticated;
+        final boolean extendedSearchRights = adminAuthenticated;
 
         final int item = post.getInt("item", -1);
         final RequestHeader.FileType fileType = header.fileType();
 
-		if (post.containsKey("auth") && !adminAuthenticated && user == null) {
+		if (post.containsKey("auth") && !adminAuthenticated) {
 			/*
 			 * Access to authentication protected features is explicitely requested here
 			 * but no authentication is provided : ask now for authentication.
@@ -168,7 +160,21 @@ public class yacysearchitem {
 
             // generate result object
             final URIMetadataNode result = theSearch.oneResult(item, timeout);
-            if (result == null) return prop; // no content
+            if (result == null) {
+                ConcurrentLog.info(
+                    "yacysearchitem",
+                    "NO RESULT: eventID="
+                        + eventID
+                        + " item="
+                        + item
+                        + " timeout="
+                        + timeout
+                        + " resultCount="
+                        + theSearch.getResultCount()
+                        + " feedRunning="
+                        + (!theSearch.isFeedingFinished()));
+                return prop; // no content
+            }
             final String resultUrlstring = result.urlstring();
             final DigestURL resultURL = result.url();
             final String target = sb.getConfig(resultUrlstring.matches(target_special_pattern) ? SwitchboardConstants.SEARCH_TARGET_SPECIAL : SwitchboardConstants.SEARCH_TARGET_DEFAULT, "_self");
@@ -178,20 +184,9 @@ public class yacysearchitem {
             prop.put("content", 1); // switch on specific content
             final String urlhash = ASCII.String(result.hash());
             if (adminAuthenticated) { // only needed if authorized
-                addAuthorizedActions(sb, prop, theSearch, resultUrlstring, resource, origQ, urlhash, null);
-            } else if (authenticated && user != null) {
-                addAuthorizedActions(sb, prop, theSearch, resultUrlstring, resource, origQ, urlhash, user);
+                addAuthorizedActions(sb, prop, theSearch, resultUrlstring, resource, origQ, urlhash);
             } else
                 prop.put("content_authorized", "0"); // disable for not authorized user
-// for testing only
-// result
-// if local Admin - no admin_right
-// if admin authent -> admin_right = true, bookmark_right = false
-            if (header.isUserInRole(UserDB.AccessRight.ADMIN_RIGHT.toString())) {
-                if (header.isUserInRole(UserDB.AccessRight.BOOKMARK_RIGHT.toString())) {
-                    System.out.println("booki");
-                }
-            }
             prop.putHTML("content_title", result.title());
             prop.putXML("content_title-xml", result.title());
             prop.putJSON("content_title-json", result.title());
@@ -277,7 +272,6 @@ public class yacysearchitem {
             final Date[] events = result.events();
             final boolean showEvent = events != null && events.length > 0 && sb.getConfig("search.navigation", "").indexOf("date",0) >= 0;
             prop.put("content_showEvent", showEvent ? 1 : 0);
-            final Collection<File> snapshotPaths = sb.getConfigBool("search.result.show.snapshots", true) ? Transactions.findPaths(result.url(), null, State.ANY) : null;
             if (fileType == FileType.HTML) { // html template specific settings
 				final boolean showKeywords = (sb.getConfigBool(SwitchboardConstants.SEARCH_RESULT_SHOW_KEYWORDS,
 						SwitchboardConstants.SEARCH_RESULT_SHOW_KEYWORDS_DEFAULT) && !result.dc_subject().isEmpty());
@@ -291,7 +285,6 @@ public class yacysearchitem {
                 prop.put("content_showCache", sb.getConfigBool("search.result.show.cache", true) && Cache.has(resultURL.hash()) ? 1 : 0);
                 prop.put("content_showProxy", sb.getConfigBool("search.result.show.proxy", true) && sb.getConfigBool("proxyURL", false) ? 1 : 0);
                 prop.put("content_showIndexBrowser", sb.getConfigBool("search.result.show.indexbrowser", true) ? 1 : 0);
-                prop.put("content_showSnapshots", snapshotPaths != null && snapshotPaths.size() > 0 && sb.getConfigBool("search.result.show.snapshots", true) ? 1 : 0);
                 prop.put("content_showVocabulary", sb.getConfigBool("search.result.show.vocabulary", true) ? 1 : 0);
                 prop.put("content_showRanking", sb.getConfigBool("search.result.show.ranking", false) ? 1 : 0);
 
@@ -361,29 +354,6 @@ public class yacysearchitem {
                 } else {
                     prop.put("content_showVocabulary_vocabulary", 0);
                     prop.put("content_showVocabulary", 0);
-                }
-                if (snapshotPaths != null && snapshotPaths.size() > 0) {
-            		/* Only add a link to the eventual snapshot file in the format it is stored (no resource fetching and conversion here) */
-                	String selectedExt = null, ext;
-                	for(final File snapshot : snapshotPaths) {
-                		ext = MultiProtocolURL.getFileExtension(snapshot.getName());
-                		if("jpg".equals(ext) || "png".equals(ext)) {
-                			/* Prefer snapshots in jpeg or png format */
-                			selectedExt = ext;
-                			break;
-                		} else if("pdf".equals(ext)) {
-                			selectedExt = ext;
-                		} else if("xml".equals(ext) && selectedExt == null) {
-                			/* Use the XML metadata snapshot in last resort */
-                			selectedExt = ext;
-                		}
-                	}
-                	if(selectedExt != null) {
-                		prop.putHTML("content_showSnapshots_extension", selectedExt.toUpperCase(Locale.ROOT));
-                		prop.putHTML("content_showSnapshots_link", "api/snapshot." + selectedExt + "?url=" + resultURL);
-                	} else {
-                		prop.put("content_showSnapshots", 0);
-                	}
                 }
                 prop.put("content_showRanking_ranking", Float.toString(result.score()));
                 prop.put("content_ranking", Float.toString(result.score()));
@@ -692,17 +662,13 @@ public class yacysearchitem {
      * @param resource resource scope ("local" or "global")
      * @param origQ origin query terms
      * @param urlhash URL hash of the result item
-     * @param user current user or null if current user is admin
      */
     private static void addAuthorizedActions(final Switchboard sb, final serverObjects prop,
             final SearchEvent theSearch, final String resultUrlstring, final String resource, final String origQ,
-            final String urlhash, final UserDB.Entry user) {
+            final String urlhash) {
         // check if url exists in bookmarks
         final boolean bookmarkexists = sb.bookmarksDB.getBookmark(urlhash) != null;
-        if (user == null || user.hasRight(UserDB.AccessRight.BOOKMARK_RIGHT)) {
-            prop.put("content_authorized_bookmark", !bookmarkexists);
-        } else
-            prop.put("content_authorized_bookmark", "0");
+        prop.put("content_authorized_bookmark", !bookmarkexists);
 /*      boolean blacklistislisted = false;
         try {
             DigestURL durl = new DigestURL(resultUrlstring);
@@ -737,13 +703,8 @@ public class yacysearchitem {
         prop.put("content_authorized_recommend_deletelink", deleteLink);
         prop.put("content_authorized_recommend_recommendlink", recommendLink);
 
-        if (user == null || user.hasRight(UserDB.AccessRight.ADMIN_RIGHT)) {
-            prop.put("content_authorized_recommend", (sb.peers.newsPool.getSpecific(NewsPool.OUTGOING_DB, NewsPool.CATEGORY_SURFTIPP_ADD, "url", resultUrlstring) == null) ? "1" : "0");
-            prop.put("content_authorized_blacklist", "1");
-        } else {
-            prop.put("content_authorized_recommend", "0");
-            prop.put("content_authorized_blacklist", "0");
-        }
+        prop.put("content_authorized_recommend", (sb.peers.newsPool.getSpecific(NewsPool.OUTGOING_DB, NewsPool.CATEGORY_SURFTIPP_ADD, "url", resultUrlstring) == null) ? "1" : "0");
+        prop.put("content_authorized_blacklist", "1");
         // prop.put("content_authorized_urlhash", urlhash); // not used 2022-02-09
         prop.put("content_authorized", "1"); // enable authorized icons/content
     }
@@ -769,28 +730,32 @@ public class yacysearchitem {
 		    final String imageUrlExt = MultiProtocolURL.getFileExtension(image.imageUrl.getFileName());
 		    final String target = sb.getConfig(imageUrlstring.matches(target_special_pattern) ? SwitchboardConstants.SEARCH_TARGET_SPECIAL : SwitchboardConstants.SEARCH_TARGET_DEFAULT, "_self");
 
-		    final String license = URLLicense.aquireLicense(image.imageUrl); // this is just the license key to get the image forwarded through the YaCy thumbnail viewer, not an actual lawful license
+		    String license = ""; // this is just the license key to get the image forwarded through the YaCy thumbnail viewer, not an actual lawful license
 		    /* Image format ouput for ViewImage servlet : default is png, except with gif and svg images */
 		    final String viewImageExt = !imageUrlExt.isEmpty() && ImageViewer.isBrowserRendered(imageUrlExt) ? imageUrlExt : "png";
 		    /* Thumb URL */
-			final StringBuilder thumbURLBuilder = new StringBuilder("ViewImage.").append(viewImageExt).append("?maxwidth=")
+		    final StringBuilder thumbURLBuilder = new StringBuilder("ViewImage.").append(viewImageExt).append("?maxwidth=")
 					.append(DEFAULT_IMG_WIDTH).append("&maxheight=").append(DEFAULT_IMG_HEIGHT)
 					.append("&isStatic=true&quadratic");
 		    /* Only use licence code for non authentified users. For authenticated users licence would never be released and would unnecessarily fill URLLicense.permissions. */
+		    final String thumbURL;
+		    final String fullPreviewURL;
 		    if(fullViewingRights) {
 		    	thumbURLBuilder.append("&url=").append(imageUrlstring);
+		    	thumbURL = thumbURLBuilder.toString();
+		    	/* Full size preview URL */
+		    	fullPreviewURL = "ViewImage." + viewImageExt + "?isStatic=true&url=" + imageUrlstring;
 		    } else {
-		    	thumbURLBuilder.append("&code=").append(URLLicense.aquireLicense(image.imageUrl));
+		    	final String thumbLicense = URLLicense.aquireLicense(image.imageUrl);
+		    	final String fullPreviewLicense = URLLicense.aquireLicense(image.imageUrl);
+		    	final String baseThumbURL = thumbURLBuilder.toString();
+		    	thumbURL = baseThumbURL + "&code=" + thumbLicense;
+		    	license = thumbLicense;
+		    	/* Not authenticated : full preview URL must be the same as thumb URL, but with a separate one-time license */
+		    	fullPreviewURL = baseThumbURL + "&code=" + fullPreviewLicense;
 		    }
-		    final String thumbURL = thumbURLBuilder.toString();
 		    prop.putHTML("content_item_hrefCache", thumbURL);
-		    /* Full size preview URL */
-		    if(fullViewingRights) {
-		    	prop.putHTML("content_item_hrefFullPreview", "ViewImage." + viewImageExt + "?isStatic=true&url=" + imageUrlstring);
-		    } else {
-		    	/* Not authenticated : full preview URL must be the same as thumb URL */
-		    	prop.putHTML("content_item_hrefFullPreview", thumbURL);
-		    }
+		    prop.putHTML("content_item_hrefFullPreview", fullPreviewURL);
 		    prop.putHTML("content_item_href", imageUrlstring);
 		    prop.putHTML("content_item_target", target);
 		    prop.put("content_item_code", license);

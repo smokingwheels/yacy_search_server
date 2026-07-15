@@ -69,7 +69,6 @@ import net.yacy.cora.protocol.ResponseHeader;
 import net.yacy.cora.util.ConcurrentLog;
 import net.yacy.data.BookmarksDB.Bookmark;
 import net.yacy.data.DidYouMean;
-import net.yacy.data.UserDB;
 import net.yacy.document.LibraryProvider;
 import net.yacy.document.Tokenizer;
 import net.yacy.http.servlets.TemplateProcessingException;
@@ -111,22 +110,11 @@ public class yacysearch {
         final Switchboard sb = (Switchboard) env;
         sb.localSearchLastAccess = System.currentTimeMillis();
 
-        String authenticatedUserName = null;
         final boolean adminAuthenticated = sb.verifyAuthentication(header);
         final boolean searchAllowed = sb.getConfigBool(SwitchboardConstants.PUBLIC_SEARCHPAGE, true) || adminAuthenticated;
-
-        boolean extendedSearchRights = adminAuthenticated;
-        boolean bookmarkRights = false;
-        if (adminAuthenticated) {
-            authenticatedUserName = sb.getConfig(SwitchboardConstants.ADMIN_ACCOUNT_USER_NAME, "admin");
-        } else {
-            final UserDB.Entry user = sb.userDB != null ? sb.userDB.getUser(header) : null;
-            if (user != null) {
-                extendedSearchRights = user.hasRight(UserDB.AccessRight.EXTENDED_SEARCH_RIGHT);
-                authenticatedUserName = user.getUserName();
-                bookmarkRights = user.hasRight(UserDB.AccessRight.BOOKMARK_RIGHT);
-            }
-        }
+        final boolean extendedSearchRights = adminAuthenticated;
+        final String authenticatedUserName = adminAuthenticated
+                ? sb.getConfig(SwitchboardConstants.ADMIN_ACCOUNT_USER_NAME, "admin") : null;
 
         final boolean localhostAccess = header.accessFromLocalhost();
         final String promoteSearchPageGreeting =
@@ -188,7 +176,7 @@ public class yacysearch {
             prop.put("offset", "0");
             prop.put("resource", "global");
             prop.put("urlmaskfilter", (post == null) ? ".*" : post.get("urlmaskfilter", ".*"));
-            prop.put("prefermaskfilter", (post == null) ? "" : post.get("prefermaskfilter", ""));
+            prop.putHTML("prefermaskfilter", (post == null) ? "" : post.get("prefermaskfilter", ""));
             prop.put("indexof", "off");
             prop.put("constraint", "");
             prop.put("depth", "0");
@@ -256,6 +244,7 @@ public class yacysearch {
 
         // check an determine items per page (max of [100 or configured default]}
         final int defaultItemsPerPage = sb.getConfigInt(SwitchboardConstants.SEARCH_ITEMS, 10);
+        final boolean itemsPerPageExplicit = post != null && (post.containsKey("maximumRecords") || post.containsKey("count") || post.containsKey("rows"));
         int itemsPerPage = post.getInt("maximumRecords", post.getInt("count", post.getInt("rows", defaultItemsPerPage))); // requested or default // SRU syntax with old property as alternative
         // whatever admin has set as default, that's always ok
         if (itemsPerPage > defaultItemsPerPage && itemsPerPage > 100) { // if above hardcoded 100 limit restrict request (except default allows more)
@@ -301,6 +290,9 @@ public class yacysearch {
 
         // find search domain
         final Classification.ContentDomain contentdom = post == null || !post.containsKey("contentdom") ? ContentDomain.ALL : ContentDomain.contentdomParser(post.get("contentdom", "all"));
+        if (contentdom == ContentDomain.IMAGE && itemsPerPage == defaultItemsPerPage) {
+            itemsPerPage = 20;
+        }
 
         // Strict/extended content domain constraint : configured setting may be overriden by request param
         final boolean strictContentDom = !Boolean.FALSE.toString().equalsIgnoreCase(post.get("strictContentDom",
@@ -708,14 +700,14 @@ public class yacysearch {
 
           // if a bookmarks-button was hit, create new bookmark entry
             if (post != null && post.containsKey("bookmarkref")) {
-                if (!sb.verifyAuthentication(header) && !bookmarkRights) {
+                if (!adminAuthenticated) {
                     prop.authenticationRequired();
                     return prop;
                 }
                 //final String bookmarkHash = post.get("bookmarkref", ""); // urlhash
                 final String urlstr = crypt.simpleDecode(post.get("bookmarkurl"));
                 if (urlstr != null) {
-                    final Bookmark bmk = sb.bookmarksDB.createorgetBookmark(urlstr, "admin");
+                    final Bookmark bmk = sb.bookmarksDB.createorgetBookmark(urlstr, authenticatedUserName);
                     if (bmk != null) {
                         bmk.setProperty(Bookmark.BOOKMARK_QUERY, querystring);
                         bmk.addTag("/search"); // add to bookmark folder
@@ -836,6 +828,18 @@ public class yacysearch {
                 theQuery.setOffset(0); // in case that this is a new search, always start without a offset
                 startRecord = 0;
             }
+            ConcurrentLog.info(
+                "LOCAL_SEARCH",
+                "SEARCH EVENT: id="
+                    + theQuery.id(false)
+                    + " cached="
+                    + (cachedEvent != null)
+                    + " query="
+                    + theQuery.getQueryGoal().getQueryString(false)
+                    + " startRecord="
+                    + startRecord
+                    + " itemsPerPage="
+                    + theQuery.itemsPerPage());
             final SearchEvent theSearch =
                 SearchEventCache.getEvent(
                     theQuery,
@@ -970,6 +974,25 @@ public class yacysearch {
             prop.put("num-results_globalresults_remoteResourceSize", Formatter.number(theSearch.remote_rwi_stored.get() + theSearch.remote_solr_stored.get(), true));
             prop.put("num-results_globalresults_remoteIndexCount", Formatter.number(theSearch.remote_rwi_available.get() + theSearch.remote_solr_available.get(), true));
             prop.put("num-results_globalresults_remotePeerCount", Formatter.number(theSearch.remote_rwi_peerCount.get() + theSearch.remote_solr_peerCount.get(), true));
+
+            if (theSearch.getResultCount() == 0 && querystring.length() > 0) {
+                ConcurrentLog.info(
+                    "LOCAL_SEARCH",
+                    "ZERO RESULTS: id="
+                        + theQuery.id(false)
+                        + " query="
+                        + theQuery.getQueryGoal().getQueryString(false)
+                        + " localAvailable="
+                        + (theSearch.local_rwi_available.get() + theSearch.local_solr_stored.get())
+                        + " localStored="
+                        + (theSearch.local_rwi_stored.get() + theSearch.local_solr_stored.get())
+                        + " remoteAvailable="
+                        + (theSearch.remote_rwi_available.get() + theSearch.remote_solr_available.get())
+                        + " remoteStored="
+                        + (theSearch.remote_rwi_stored.get() + theSearch.remote_solr_stored.get())
+                        + " feedRunning="
+                        + (!theSearch.isFeedingFinished()));
+            }
 
             prop.put("jsResort", jsResort);
             prop.put("num-results_jsResort", jsResort);
