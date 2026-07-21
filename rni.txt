@@ -1,0 +1,10 @@
+source/net/yacy/http/servlets/MonitorFilter.java:2: *  MonitorFilter
+source/net/yacy/http/servlets/MonitorFilter.java:51:public class MonitorFilter implements Filter {
+source/net/yacy/http/Jetty12HttpServer.java:73:import net.yacy.http.servlets.MonitorFilter;
+source/net/yacy/http/Jetty12HttpServer.java:129:                    ConnectionInfo.removeServerConnection(MonitorFilter.connectionId(
+source/net/yacy/http/Jetty12HttpServer.java:196:        final FilterHolder monitorFilter = new FilterHolder(MonitorFilter.class);
+source/net/yacy/http/Jetty12HttpServer.java:197:        monitorFilter.setAsyncSupported(true);
+source/net/yacy/http/Jetty12HttpServer.java:198:        webApp.addFilter(monitorFilter, "/*", EnumSet.of(DispatcherType.REQUEST));
+source/net/yacy/htroot/PerformanceQueues_p.java:316:            sb.setConfig("httpdMaxBusySessions",maxBusy);
+source/net/yacy/htroot/IndexReIndexMonitor_p.java:84:                prop.put("currentselectquery","q="+((ReindexSolrBusyThread) reidxbt).getCurrentQuery());
+source/net/yacy/htroot/IndexReIndexMonitor_p.java:286:			prop.put("reindexReport_currentQuery", recrawlbt.getCurrentQuery());

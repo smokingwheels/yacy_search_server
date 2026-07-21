@@ -412,8 +412,11 @@ public void someMethod2() {
 
                 // if the queue size is 1, just take that
                 if (this.roundRobinHostHashes.size() == 1) {
-                    rhh = this.roundRobinHostHashes.iterator().next();
-                    rhq = this.queues.get(rhh);
+                    final Iterator<String> iterator = this.roundRobinHostHashes.iterator();
+                    if (iterator.hasNext()) {
+                        rhh = iterator.next();
+                        rhq = this.queues.get(rhh);
+                    }
                 }
 
                 if (rhq == null) {

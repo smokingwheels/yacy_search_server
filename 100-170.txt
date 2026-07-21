@@ -1,0 +1,71 @@
+        this.loginService = new AdminLoginService();
+        this.loginService.setName(bootstrap.adminRealm());
+        this.server = createServer(bootstrap.httpPort(), bootstrap.bindHost(), bootstrap.acceptorCount(),
+                sslContext, bootstrap.httpsPort());
+        Handler requestPipeline = createWebAppHandler(this.server, bootstrap, this.loginService);
+        if (bootstrap.transparentProxyEnabled()) {
+            requestPipeline = Jetty12ProxyChain.wrap(requestPipeline, switchboard);
+        } else {
+            requestPipeline = new DisabledProxyHandler(requestPipeline);
+        }
+        final Handler crashProtected = new CrashProtectionHandler(requestPipeline);
+        this.server.setHandler(AccessRules.wrap(crashProtected, bootstrap.serverClientRules()));
+    }
+
+    Jetty12HttpServer(final int port, final String host, final int acceptorCount,
+            final SSLContext sslContext, final int sslPort) {
+        this.loginService = null;
+        this.server = createServer(port, host, acceptorCount, sslContext, sslPort);
+    }
+
+    private static Server createServer(final int port, final String host, final int acceptorCount,
+            final SSLContext sslContext, final int sslPort) {
+        final Server server = new Server();
+        final Connection.Listener connectionCloseMonitor = new Connection.Listener() {
+            @Override
+            public void onClosed(final Connection connection) {
+                if (connection.getEndPoint().getRemoteSocketAddress() instanceof InetSocketAddress) {
+                    final InetSocketAddress remote =
+                            (InetSocketAddress) connection.getEndPoint().getRemoteSocketAddress();
+                    ConnectionInfo.removeServerConnection(MonitorFilter.connectionId(
+                            remote.getAddress().getHostAddress(), remote.getPort()));
+                }
+            }
+        };
+
+        final HttpConfiguration httpConfiguration = new HttpConfiguration();
+        httpConfiguration.setRequestHeaderSize(HttpServerBootstrapConfig.REQUEST_HEADER_SIZE);
+        final ServerConnector httpConnector = new ServerConnector(server, acceptorCount, -1,
+                new HttpConnectionFactory(httpConfiguration));
+        configureConnector(httpConnector, host, port, "httpd-" + host + ":" + port,
+                connectionCloseMonitor);
+        httpConnector.setAcceptQueueSize(HttpServerBootstrapConfig.ACCEPT_QUEUE_SIZE);
+        server.addConnector(httpConnector);
+
+        if (sslContext != null) {
+            final SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
+            sslContextFactory.setSslContext(sslContext);
+            final HttpConfiguration httpsConfiguration = new HttpConfiguration(httpConfiguration);
+            httpsConfiguration.addCustomizer(createSecureRequestCustomizer());
+            final ServerConnector httpsConnector = new ServerConnector(server, acceptorCount, -1,
+                    new SslConnectionFactory(sslContextFactory, HttpVersion.HTTP_1_1.asString()),
+                    new HttpConnectionFactory(httpsConfiguration));
+            configureConnector(httpsConnector, host, sslPort, "ssld:" + sslPort,
+                    connectionCloseMonitor);
+            httpsConnector.setAcceptQueueSize(HttpServerBootstrapConfig.ACCEPT_QUEUE_SIZE);
+            server.addConnector(httpsConnector);
+        }
+        return server;
+    }
+
+    static SecureRequestCustomizer createSecureRequestCustomizer() {
+        final SecureRequestCustomizer secureRequests = new SecureRequestCustomizer();
+        // Preserve Jetty 9 behavior and support YaCy's configurable/self-signed certificates,
+        // whose subject does not necessarily match the requested peer hostname.
+        secureRequests.setSniHostCheck(false);
+        return secureRequests;
+    }
+
+    private static void configureConnector(final ServerConnector connector, final String host,
+            final int port, final String name, final Connection.Listener listener) {
+        connector.setHost(host);
