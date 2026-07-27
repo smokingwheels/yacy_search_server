@@ -1,0 +1,3 @@
+timestamp,peer,local_ppm,loader_size,loader_max,local_queue,local_state,remote_queue,memory_used_bytes,memory_total_bytes,memory_max_bytes,system_load,crawler_traffic_bytes,documents,global_peers_online,global_indexing_ppm,global_queries_per_minute,global_links_stored,global_remote_crawl_links,global_status
+"2026-07-27T11:58:09+00:00","local-peer","","","","","","","","","","","","","","","","","","dashboard-query-blocked-or-unsupported"
+"2026-07-27T11:58:58+00:00","local-peer","2076","136","400","600808","running","0","11126770408","14763950080","42949672960","18.31","108177155522","12850749","","","","","","dashboard-query-blocked-or-unsupported"
