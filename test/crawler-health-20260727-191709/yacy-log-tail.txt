@@ -1,0 +1,1 @@
+YaCy log not found: /home/nextcloud/Downloads/AMP/yacy_search_server/test/DATA/LOG/yacy00.log
