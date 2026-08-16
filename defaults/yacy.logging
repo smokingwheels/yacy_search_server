@@ -1,6 +1,6 @@
 # Set the logging level for the root of the namespace.
 # This becomes the default logging level for all Loggers.
-.level=INFO
+.level=SEVERE
 
 # setting logging levels vor individual classes
 # possible values are:
@@ -16,15 +16,15 @@ BASE64.level = OFF
 PARSER.level = INFO
 PROXY.level = INFO
 YACY.level = INFO
-NETWORK.level = INFO
+NETWORK.level = SEVERE
 HTCACHE.level = INFO
 PLASMA.level = INFO
-SERVER.level = INFO
+SERVER.level = SEVERE
 FILEHANDLER.level = INFO
 CRAWLER.level = INFO
 STACKCRAWL.level = INFO
 MEMORY.level = INFO
-HTTPC.level = INFO
+HTTPC.level = SEVERE
 
 # RWI related
 DHT-OUT.level = INFO
@@ -48,8 +48,8 @@ handlers = java.util.logging.FileHandler,\
            net.yacy.kelondro.logging.LogalizerHandler
 
 # Properties for the FileHandler
-java.util.logging.FileHandler.limit = 1048576
-java.util.logging.FileHandler.count = 20
+java.util.logging.FileHandler.limit = 5048576
+java.util.logging.FileHandler.count = 10
 java.util.logging.FileHandler.pattern = DATA/LOG/yacy%u%g.log
 java.util.logging.FileHandler.level = ALL
 java.util.logging.FileHandler.formatter=net.yacy.kelondro.logging.SimpleLogFormatter

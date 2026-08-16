@@ -7,7 +7,7 @@ public final class DNSThrottle {
     private static final AtomicLong nextAllowed = new AtomicLong(0);
 
     private static volatile boolean enabled = true;
-    private static volatile long intervalMs = 5; // default 200 Hz
+    private static volatile long intervalMs = 1; // default 5 = 200 Hz
 
     private DNSThrottle() {}
 
