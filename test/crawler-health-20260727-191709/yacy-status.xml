@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<status>
+  <ppm>72</ppm>
+  
+  <wordCacheSize>9278</wordCacheSize>
+  <wordCacheMaxSize>20000</wordCacheMaxSize>
+
+  <memory>
+    <used>176823944</used>
+    <free>92660088</free>
+    <total>269484032</total>
+    <max>629145600</max>
+  </memory>
+  
+  <disk>
+    <used>1087612889</used>
+    <free>158627975168</free>
+  </disk>
+  
+  <processors>8</processors>
+  <load>2.41</load>
+  
+  <traffic>
+	<in>9082907</in>
+	<proxy>0</proxy>
+	<crawler>9082907</crawler>
+  </traffic>
+  
+  <dbsize>
+    <urlpublictext>15976</urlpublictext>
+    <urlpublictextSegmentCount>12</urlpublictextSegmentCount>
+    <webgraph>0</webgraph>
+    <webgraphSegmentCount>0</webgraphSegmentCount>
+    <citation>0</citation>
+    <citationSegmentCount>0</citationSegmentCount>
+    <rwipublictext>163880</rwipublictext>    
+    <rwipublictextSegmentCount>42</rwipublictextSegmentCount>    
+  </dbsize>
+  
+  <loaderqueue>
+    <size>9</size>
+    <max>200</max>
+  </loaderqueue>
+  
+  <localcrawlerqueue>
+    <size>0</size>
+    <state>running</state>
+  </localcrawlerqueue>
+  
+  <limitcrawlerqueue>
+    <size>0</size>
+    <state>running</state>
+  </limitcrawlerqueue>
+  
+  <remotecrawlerqueue>
+    <size>56</size>
+    <state>running</state>
+  </remotecrawlerqueue>
+  
+  <noloadcrawlerqueue>
+    <size>0</size>
+    <state>running</state>
+  </noloadcrawlerqueue>
+
+<!-- crawl profile list -->
+<crawls count="0"/>
+  
+  <postprocessing>
+    <collectionRemainingCount>0</collectionRemainingCount>
+    <webgraphRemainingCount>0</webgraphRemainingCount>
+    <status>idle</status>
+    <speed>0</speed>
+    <elapsedTime>0</elapsedTime>
+    <remainingTime>0</remainingTime>
+    <remainingTimeMinutes>00</remainingTimeMinutes>
+    <remainingTimeSeconds>00</remainingTimeSeconds>
+  </postprocessing>
+  
+</status>

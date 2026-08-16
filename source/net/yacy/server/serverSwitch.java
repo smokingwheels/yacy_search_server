@@ -311,11 +311,7 @@ public class serverSwitch {
         // set the value
         final String oldValue = this.configProps.put(key, value);
         if (oldValue == null || !value.equals(oldValue)) {
-            if (saveOriginContext.get() == SaveConfigOrigin.UI) {
-                this.saveConfigUI();
-            } else {
-                this.saveConfigBot();
-            }
+            this.saveConfig(saveOriginContext.get());
         }
     }
 
@@ -522,8 +518,7 @@ public class serverSwitch {
     }
 
     private void saveConfig(final SaveConfigOrigin origin) {
-        final ConcurrentMap<String, String> configPropsCopy = new ConcurrentHashMap<>(this.configProps);
-        FileUtils.saveMap(this.configFile, configPropsCopy, this.configComment);
+        FileUtils.saveMap(this.configFile, this.configProps, this.configComment);
         if (this.log != null && this.log.isFine()) {
             this.log.fine("Saved config to " + this.configFile + " (origin=" + origin + ")");
         }

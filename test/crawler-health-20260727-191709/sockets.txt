@@ -1,0 +1,7 @@
+=== SOCKET STATES FOR PID 1473437 ===
+      25 ESTAB
+       4 SYN-SENT
+       1 LISTEN
+
+=== LISTENERS ===
+LISTEN 0      128                *:8090             *:*    users:(("java",pid=1473437,fd=196))   

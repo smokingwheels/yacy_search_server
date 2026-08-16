@@ -1,0 +1,1 @@
+source/net/yacy/cora/protocol/ConnectionInfo.java:39:public class ConnectionInfo implements Comparable<ConnectionInfo> {

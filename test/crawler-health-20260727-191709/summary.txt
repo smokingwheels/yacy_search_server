@@ -1,0 +1,22 @@
+YaCy crawler health report
+Time:       2026-07-27T19:17:09+08:00
+Host:       Satellite-Pro-L850
+PID:        1473437
+YaCy home:  /home/nextcloud/Downloads/AMP/yacy_search_server/test
+Port:       8090
+Sample:     10s
+Report:     /home/nextcloud/Downloads/AMP/yacy_search_server/test/crawler-health-20260727-191709
+
+=== QUICK RESULT ===
+Load average:             2.83 1.97 1.68
+Open file descriptors:    247
+BLOCKED JVM threads:      0
+CrawlStacker threads:     8
+HostQueue stack entries:  0
+Loader WAITING threads:   2
+Assessment: no JVM BLOCKED threads captured.
+
+Finished. Files are in:
+/home/nextcloud/Downloads/AMP/yacy_search_server/test/crawler-health-20260727-191709
+Archive:
+/home/nextcloud/Downloads/AMP/yacy_search_server/test/crawler-health-20260727-191709.tar.gz

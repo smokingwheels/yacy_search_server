@@ -794,7 +794,7 @@ cleanup.failedSearchURLtimeout = 86400000
 # not for first startup of YaCy
 
 # -Xmx<size> maximum/init Java heap size
-javastart_Xmx=Xmx600m
+javastart_Xmx=Xmx1500m
 
 # YaCy is able to use RAM copies of database tables. This needs a lot of RAM.
 # To switch on copying of file tables int RAM, there must be enough memory
