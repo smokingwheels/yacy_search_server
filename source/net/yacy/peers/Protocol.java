@@ -807,8 +807,37 @@ public final class Protocol {
                 writerToLocalIndex.stopWriting();
                 throw new InterruptedException("remoteProcess stopped!");
             }
-            /* Ensure freshly stored metadata is visible to queries before adding results. */
-            event.query.getSegment().fulltext().commit(true);
+            /*
+             * Ensure freshly stored metadata is visible to queries before adding results.
+             *
+             * Do not commit on the interruptible RemoteSearch thread. Lucene uses
+             * interruptible NIO channels and an interrupt during commit can close
+             * the IndexWriter. Run the commit on a dedicated worker and, if this
+             * RemoteSearch thread is interrupted while waiting, let the commit
+             * finish safely before propagating the interruption.
+             */
+            final CommitToLocalIndexThread commitThread =
+                    new CommitToLocalIndexThread(event.query.getSegment());
+            commitThread.start();
+
+            boolean interrupted = false;
+            for (;;) {
+                try {
+                    commitThread.join();
+                    break;
+                } catch (final InterruptedException e) {
+                    /* Never interrupt the commit worker. */
+                    interrupted = true;
+                }
+            }
+
+            if (commitThread.getFailure() != null) {
+                throw commitThread.getFailure();
+            }
+            if (interrupted) {
+                throw new InterruptedException(
+                        "remoteProcess interrupted while waiting for Solr commit");
+            }
             if (storeDocs != null && !storeDocs.isEmpty()) {
                 event.addNodes(storeDocs, null, snip, false, target.getName() + "/" + target.hash, result.totalCount, true);
             } else {
@@ -891,6 +920,37 @@ public final class Protocol {
                     ConcurrentLog.logException(e);
                 }
             }
+        }
+    }
+
+    /**
+     * Execute a Solr commit outside of an interruptible RemoteSearch thread.
+     * Interrupting Lucene during commit may cause ClosedByInterruptException
+     * and close the IndexWriter. This worker must not be interrupted as a
+     * cancellation mechanism.
+     */
+    private static class CommitToLocalIndexThread extends Thread {
+
+        private final Segment segment;
+        private RuntimeException failure;
+
+        CommitToLocalIndexThread(final Segment segment) {
+            super("CommitToLocalIndexThread");
+            this.segment = segment;
+            this.failure = null;
+        }
+
+        @Override
+        public void run() {
+            try {
+                this.segment.fulltext().commit(true);
+            } catch (final RuntimeException e) {
+                this.failure = e;
+            }
+        }
+
+        RuntimeException getFailure() {
+            return this.failure;
         }
     }
 
@@ -1827,7 +1887,7 @@ public final class Protocol {
             sb.peers.addConnected(targetSeed); // update the peer
             return result;
         }
-        
+
         // Process error URLs reported back by receiver
         final String rejectedURLs = in.get("errorURL");
         if (rejectedURLs != null && !rejectedURLs.isEmpty() && !rejectedURLs.equals(",")) {
@@ -1844,7 +1904,7 @@ public final class Protocol {
                             final Object cd = metadata.getFieldValue("crawldepth_i");
                             if (cd instanceof Integer) crawldepth = ((Integer) cd).intValue();
                             else if (cd instanceof Long) crawldepth = ((Long) cd).intValue();
-                            
+
                             // Mark as error locally
                             sb.crawlQueues.errorURL.push(metadata.url(), crawldepth, null,
                                 FailCategory.FINAL_LOAD_CONTEXT,
@@ -1856,7 +1916,7 @@ public final class Protocol {
                 }
             }
         }
-        
+
         EventChannel.channels(EventChannel.DHTSEND).addMessage(
             new RSSMessage(
                 "Sent " + uhs.length + " URLs to peer " + targetSeed.getName()+ "/[" + targetSeed.hash + "]",
