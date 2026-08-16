@@ -1036,9 +1036,9 @@ public final class Switchboard extends serverSwitch {
                             Switchboard.this.storeDocumentIndex(in);
                             return null;
                         },
-                        2,
+                        16,
                         null,
-                        1);
+                        8);
         this.indexingAnalysisProcessor =
                 new WorkflowProcessor<>(
                         "webStructureAnalysis",

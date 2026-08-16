@@ -21,7 +21,6 @@
 
 package net.yacy.crawler;
 
-import java.util.concurrent.ThreadLocalRandom;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -117,14 +116,6 @@ public class HostBalancer implements Balancer {
      * return immediately (as large unfinished crawls may take longer to load)
      */
 
-public void someMethod1() {
-    int loops = ThreadLocalRandom.current().nextInt(0, 1); // 1–10 inclusive
-
-    for (int i = 0; i < loops; i++) {
-    }
-}
-
-
 
     private void init(final boolean async) {
         if(async) {
@@ -144,14 +135,6 @@ public void someMethod1() {
     /**
      * Fills the queue by scanning the hostsPath directory.
      */
-public void someMethod2() {
-    int loops = ThreadLocalRandom.current().nextInt(0, 1); // 1–10 inclusive
-
-    for (int i = 0; i < loops; i++) {
-    }
-}
-
-
 
     private void runInit() {
         final String[] hostlist = this.hostsPath.list();
@@ -302,29 +285,57 @@ public void someMethod2() {
      * @throws IOException
      * @throws SpaceExceededException
      */
-    @Override
-    public String push(final Request entry, final CrawlProfile profile, final RobotsTxt robots) throws IOException, SpaceExceededException {
-        if (this.has(entry.url().hash())) return "double occurrence";
-        depthCache.put(entry.url().hash(), entry.depth());
-        final String hosthash = entry.url().hosthash();
+@Override
+public String push(
+        final Request entry,
+        final CrawlProfile profile,
+        final RobotsTxt robots
+) throws IOException, SpaceExceededException {
+    final byte[] hash = entry.url().hash();
 
-        // try a concurrent push
-        HostQueue queue = this.queues.get(hosthash);
-        if (queue != null) return queue.push(entry, profile, robots);
+    if (this.has(hash)) {
+        return "double occurrence";
+    }
 
-        // to prevent new double HostQueue creation, do this now synchronized
+    final String hosthash = entry.url().hosthash();
+    HostQueue queue = this.queues.get(hosthash);
+    String result;
+
+    if (queue != null) {
+        result = queue.push(entry, profile, robots);
+    } else {
         synchronized (this) {
             queue = this.queues.get(hosthash);
+
             if (queue == null) {
-                queue = new HostQueue(this.hostsPath, entry.url(), this.queues.size() > this.onDemandLimit, this.exceed134217727);
+                queue = new HostQueue(
+                        this.hostsPath,
+                        entry.url(),
+                        this.queues.size() > this.onDemandLimit,
+                        this.exceed134217727
+                );
+
                 this.queues.put(hosthash, queue);
-                // profile might be null when continue crawls after YaCy restart
-                robots.ensureExist(entry.url(), profile == null ? ClientIdentification.yacyInternetCrawlerAgent : profile.getAgent(), true); // concurrently load all robots.txt
+
+                robots.ensureExist(
+                        entry.url(),
+                        profile == null
+                                ? ClientIdentification.yacyInternetCrawlerAgent
+                                : profile.getAgent(),
+                        true
+                );
             }
-            return queue.push(entry, profile, robots);
+
+            result = queue.push(entry, profile, robots);
         }
     }
 
+    if (result == null) {
+        depthCache.put(hash, entry.depth());
+    }
+
+    return result;
+}
     /**
      * get the next entry in this crawl queue in such a way that the domain access time delta is maximized
      * and always above the given minimum delay time. In case the minimum time cannot ensured, this method pauses

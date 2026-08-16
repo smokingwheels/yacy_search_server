@@ -426,34 +426,44 @@ public class HostQueue implements Balancer {
         return true;
     }
 
-    @Override
-    public String push(final Request entry, final CrawlProfile profile, final RobotsTxt robots) throws IOException, SpaceExceededException {
-        assert entry != null;
-        final byte[] hash = entry.url().hash();
-        if (this.has(hash)) return "double occurrence in urlFileIndex";
-        synchronized (this) {
-            // double-check
-            if (this.has(hash)) return "double occurrence in urlFileIndex";
+@Override
+public String push(
+        final Request entry,
+        final CrawlProfile profile,
+        final RobotsTxt robots
+) throws IOException, SpaceExceededException {
+    assert entry != null;
+    final byte[] hash = entry.url().hash();
 
-            // increase dom counter
-            if (profile != null) {
-                final int maxPages = profile.domMaxPages();
-                if (maxPages != Integer.MAX_VALUE && maxPages > 0) {
-                    final String host = entry.url().getHost();
-                    profile.domInc(host);
-                }
-            }
-
-            // add to index
-            final Index depthStack = this.getStack(entry.depth());
-            final int s = depthStack.size();
-            depthStack.put(entry.toRow());
-            assert s < depthStack.size() : "hash = " + ASCII.String(hash) + ", s = " + s + ", size = " + depthStack.size();
-            assert depthStack.has(hash) : "hash = " + ASCII.String(hash);
+    synchronized (this) {
+        // Final atomic duplicate check before insertion
+        if (this.has(hash)) {
+            return "double occurrence in urlFileIndex";
         }
-        return null;
+
+        if (profile != null) {
+            final int maxPages = profile.domMaxPages();
+            if (maxPages != Integer.MAX_VALUE && maxPages > 0) {
+                final String host = entry.url().getHost();
+                profile.domInc(host);
+            }
+        }
+
+        final Index depthStack = this.getStack(entry.depth());
+        final int s = depthStack.size();
+        depthStack.put(entry.toRow());
+
+        assert s < depthStack.size()
+                : "hash = " + ASCII.String(hash)
+                + ", s = " + s
+                + ", size = " + depthStack.size();
+
+        assert depthStack.has(hash)
+                : "hash = " + ASCII.String(hash);
     }
 
+    return null;
+}
 
     @Override
     public Request pop(final boolean delay, final CrawlSwitchboard cs, final RobotsTxt robots) throws IOException {
