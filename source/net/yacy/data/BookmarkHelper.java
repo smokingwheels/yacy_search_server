@@ -56,6 +56,7 @@ import net.yacy.cora.document.encoding.UTF8;
 import net.yacy.cora.document.id.AnchorURL;
 import net.yacy.cora.document.id.DigestURL;
 import net.yacy.cora.util.ConcurrentLog;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.data.BookmarksDB.Bookmark;
 import net.yacy.data.BookmarksDB.Tag;
 import net.yacy.document.VocabularyScraper;
@@ -171,10 +172,12 @@ public class BookmarkHelper {
     }
 
     private static int importFromXML(final BookmarksDB db, final InputStream input, final boolean importPublic){
-        final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setValidating(false);
-        factory.setNamespaceAware(false);
         try {
+            final DocumentBuilderFactory factory =
+                    SecureXML.newDocumentBuilderFactory();
+            factory.setValidating(false);
+            factory.setNamespaceAware(false);
+
             final DocumentBuilder builder = factory.newDocumentBuilder();
             final Document doc = builder.parse(input);
             return parseXMLimport(db, doc, importPublic);
@@ -185,7 +188,6 @@ public class BookmarkHelper {
         return 0;
 
     }
-
     private static int parseXMLimport(final BookmarksDB db, final Node doc, final boolean importPublic){
         int importCount = 0;
         if ("post".equals(doc.getNodeName())) {

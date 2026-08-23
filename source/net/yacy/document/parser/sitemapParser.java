@@ -37,10 +37,10 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.zip.GZIPInputStream;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import net.yacy.cora.date.ISO8601Formatter;
 import net.yacy.cora.document.id.DigestURL;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.cora.protocol.ClientIdentification;
 import net.yacy.cora.protocol.ResponseHeader;
 import net.yacy.cora.protocol.http.HTTPClient;
@@ -159,7 +159,7 @@ public class sitemapParser extends AbstractParser implements Parser {
         @Override
         public void run() {
             try {
-                org.w3c.dom.Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(this.source);
+                org.w3c.dom.Document doc = SecureXML.newDocumentBuilderFactory().newDocumentBuilder().parse(this.source);
                 NodeList sitemapNodes = doc.getElementsByTagName("sitemap");
                 for (int i = 0; i < sitemapNodes.getLength(); i++) {
                     String url = new SitemapEntry((Element) sitemapNodes.item(i)).url();
