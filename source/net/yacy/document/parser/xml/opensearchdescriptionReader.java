@@ -32,8 +32,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 import net.yacy.cora.protocol.ClientIdentification;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.cora.protocol.http.HTTPClient;
 import net.yacy.cora.util.ConcurrentLog;
 
@@ -115,7 +115,7 @@ public class opensearchdescriptionReader extends DefaultHandler {
         SAXParser parser = tlSax.get();
         if (parser == null) {
             try {
-                parser = SAXParserFactory.newInstance().newSAXParser();
+                parser = SecureXML.newSAXParserFactory().newSAXParser();
             } catch (final ParserConfigurationException e) {
                 throw new SAXException(e.getMessage(), e);
             }

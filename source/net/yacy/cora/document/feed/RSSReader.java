@@ -28,7 +28,6 @@ import java.io.StringReader;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.commons.lang3.StringUtils;
 import org.xml.sax.Attributes;
@@ -38,6 +37,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import net.yacy.cora.document.feed.RSSMessage.Token;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.cora.util.StreamLimitException;
 import net.yacy.cora.util.StrictLimitInputStream;
 
@@ -71,7 +71,7 @@ public class RSSReader extends DefaultHandler {
         SAXParser parser = tlSax.get();
         if (parser == null) {
             try {
-                parser = SAXParserFactory.newInstance().newSAXParser();
+                parser = SecureXML.newSAXParserFactory().newSAXParser();
             } catch (final ParserConfigurationException e) {
                 throw new SAXException(e.getMessage(), e);
             }

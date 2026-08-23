@@ -32,13 +32,13 @@ import java.util.Set;
 import javax.naming.SizeLimitExceededException;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.commons.io.input.XmlStreamReader;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import net.yacy.cora.document.encoding.UTF8;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.cora.document.id.AnchorURL;
 import net.yacy.cora.document.id.DigestURL;
 import net.yacy.cora.util.StreamLimitException;
@@ -70,7 +70,7 @@ public class GenericXMLParser extends AbstractParser implements Parser {
     	SAXParser parser = tlSax.get();
     	if (parser == null) {
     		try {
-				parser = SAXParserFactory.newInstance().newSAXParser();
+				parser = SecureXML.newSAXParserFactory().newSAXParser();
 			} catch (final ParserConfigurationException e) {
 				throw new SAXException(e.getMessage(), e);
 			}

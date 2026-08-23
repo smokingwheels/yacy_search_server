@@ -39,7 +39,6 @@ import java.util.concurrent.BlockingQueue;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.solr.client.solrj.impl.XMLResponseParser;
 import org.apache.solr.common.SolrDocument;
@@ -55,6 +54,7 @@ import net.yacy.cora.document.id.DigestURL;
 import net.yacy.cora.lod.vocabulary.DublinCore;
 import net.yacy.cora.lod.vocabulary.Geo;
 import net.yacy.cora.util.ConcurrentLog;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.crawler.CrawlStacker;
 import net.yacy.search.schema.CollectionConfiguration;
 
@@ -94,7 +94,7 @@ public class XMLPackReader extends DefaultHandler implements Runnable {
     	SAXParser parser = tlSax.get();
     	if (parser == null) {
     		try {
-				parser = SAXParserFactory.newInstance().newSAXParser();
+				parser = SecureXML.newSAXParserFactory().newSAXParser();
 			} catch (final ParserConfigurationException e) {
 				throw new SAXException(e.getMessage(), e);
 			}
