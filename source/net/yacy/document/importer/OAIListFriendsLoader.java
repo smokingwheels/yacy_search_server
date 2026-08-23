@@ -37,9 +37,9 @@ import java.util.TreeMap;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import net.yacy.cora.document.encoding.UTF8;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.cora.document.id.DigestURL;
 import net.yacy.cora.federate.yacy.CacheStrategy;
 import net.yacy.cora.protocol.ClientIdentification;
@@ -109,7 +109,7 @@ public class OAIListFriendsLoader implements Serializable {
     	SAXParser parser = tlSax.get();
     	if (parser == null) {
     		try {
-				parser = SAXParserFactory.newInstance().newSAXParser();
+				parser = SecureXML.newSAXParserFactory().newSAXParser();
 			} catch (final ParserConfigurationException e) {
 				throw new SAXException(e.getMessage(), e);
 			}

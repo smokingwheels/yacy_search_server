@@ -49,6 +49,7 @@ import net.yacy.cora.document.id.DigestURL;
 import net.yacy.cora.federate.yacy.CacheStrategy;
 import net.yacy.cora.protocol.ClientIdentification;
 import net.yacy.cora.protocol.RequestHeader;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.cora.util.ConcurrentLog;
 import net.yacy.crawler.robots.RobotsTxtEntry;
 import net.yacy.repository.Blacklist.BlacklistType;
@@ -270,18 +271,18 @@ public class getpageinfo_p {
      * @return the OAI Repository name or an empty String when the response could not be parsed as an OAI-PMH response
      */
     private static String checkOAI(final String url) {
-		final DocumentBuilderFactory factory = DocumentBuilderFactory
-				.newInstance();
-		try {
-			final DocumentBuilder builder = factory.newDocumentBuilder();
-			return parseXML(builder.parse(url));
-		} catch (final ParserConfigurationException ex) {
-			ConcurrentLog.logException(ex);
-		} catch (final SAXException ex) {
-			ConcurrentLog.logException(ex);
-		} catch (final IOException ex) {
-			ConcurrentLog.logException(ex);
-		}
+        try {
+            final DocumentBuilderFactory factory = SecureXML
+                    .newDocumentBuilderFactory();
+            final DocumentBuilder builder = factory.newDocumentBuilder();
+            return parseXML(builder.parse(url));
+	} catch (final ParserConfigurationException ex) {
+	   ConcurrentLog.logException(ex);
+	} catch (final SAXException ex) {
+	   ConcurrentLog.logException(ex);
+	} catch (final IOException ex) {
+	   ConcurrentLog.logException(ex);
+	}
 
 		return "";
 	}

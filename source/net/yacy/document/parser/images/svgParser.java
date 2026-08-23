@@ -26,11 +26,11 @@ import java.util.LinkedHashMap;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import net.yacy.cora.document.id.DigestURL;
 import net.yacy.cora.document.id.MultiProtocolURL;
 import net.yacy.cora.util.ConcurrentLog;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.cora.util.NumberTools;
 import net.yacy.document.AbstractParser;
 import net.yacy.document.Document;
@@ -68,7 +68,7 @@ public class svgParser extends AbstractParser implements Parser {
         SAXParser parser = tlSax.get();
         if (parser == null) {
             try {
-                parser = SAXParserFactory.newInstance().newSAXParser();
+                parser = SecureXML.newSAXParserFactory().newSAXParser();
             } catch (final ParserConfigurationException e) {
                 throw new SAXException(e.getMessage(), e);
             }

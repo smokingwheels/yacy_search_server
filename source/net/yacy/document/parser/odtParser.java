@@ -41,10 +41,10 @@ import java.util.zip.ZipFile;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import net.yacy.cora.document.encoding.UTF8;
 import net.yacy.cora.document.id.DigestURL;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.document.AbstractParser;
 import net.yacy.document.Document;
 import net.yacy.document.Parser;
@@ -100,7 +100,7 @@ public class odtParser extends AbstractParser implements Parser {
     	SAXParser parser = tlSax.get();
     	if (parser == null) {
     		try {
-				parser = SAXParserFactory.newInstance().newSAXParser();
+				parser = SecureXML.newSAXParserFactory().newSAXParser();
 			} catch (final ParserConfigurationException e) {
 				throw new SAXException(e.getMessage(), e);
 			}

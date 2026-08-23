@@ -23,7 +23,6 @@ package net.yacy.cora.federate.yacy.api;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -32,6 +31,7 @@ import org.w3c.dom.NodeList;
 
 import net.yacy.cora.federate.yacy.Peer;
 import net.yacy.cora.federate.yacy.Peers;
+import net.yacy.cora.util.SecureXML;
 import net.yacy.cora.protocol.ClientIdentification;
 import net.yacy.cora.protocol.http.HTTPClient;
 
@@ -54,7 +54,7 @@ public class Network {
             ByteArrayInputStream bais = new ByteArrayInputStream(content);
             Document doc = null;
             try {
-                doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(bais);
+                doc = SecureXML.newDocumentBuilderFactory().newDocumentBuilder().parse(bais);
             } catch (final Throwable e) {
                 throw new IOException(e.getMessage());
             }
