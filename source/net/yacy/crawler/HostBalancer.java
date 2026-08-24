@@ -321,6 +321,8 @@ public class HostBalancer implements Balancer {
         tryagain: while (true) try {
             HostQueue rhq = null;
             String rhh = null;
+            List<String> candidateHosts = null;
+            boolean candidateWasSelected = false;
 
             synchronized (this) {
                 if (this.roundRobinHostHashes.size() == 0) {
@@ -390,103 +392,124 @@ public class HostBalancer implements Balancer {
                 }
                 if (this.roundRobinHostHashes.size() == 0) return null;
 
-                // if the queue size is 1, just take that
+                /*
+                 * Take a snapshot of the candidate hosts while holding the
+                 * HostBalancer monitor. Expensive queue inspection and
+                 * latency calculations are performed after releasing it.
+                 */
+
                 if (this.roundRobinHostHashes.size() == 1) {
                     rhh = this.roundRobinHostHashes.iterator().next();
                     rhq = this.queues.get(rhh);
+                    candidateHosts = null;
+                } else {
+                    candidateHosts = new ArrayList<>(this.roundRobinHostHashes);
                 }
+            }
 
-                if (rhq == null) {
-                    // mixed minimum sleep time / largest queue strategy:
-                    // create a map of sleep time / queue relations with a fuzzy sleep time (ms / 500).
-                    // if the entry with the smallest sleep time contains at least two entries,
-                    // then the larger one from these queues are selected.
-                    final TreeMap<Integer, List<String>> fastTree = new TreeMap<>();
-                    mixedstrategy: for (final String h: this.roundRobinHostHashes) {
-                        final HostQueue hq = this.queues.get(h);
-                        if (hq != null) {
-                            int delta = Latency.waitingRemainingGuessed(hq.getHost(), hq.getPort(), h, robots, unknwonAgentDefault) / 200;
-                            if (delta < 0) delta = 0;
-                            List<String> queueHashes = fastTree.get(delta);
-                            if (queueHashes == null) {
-                                queueHashes = new ArrayList<>(2);
-                                fastTree.put(delta, queueHashes);
-                            }
-                            queueHashes.add(h);
-                            // check stop criteria
-                            final List<String> firstEntries = fastTree.firstEntry().getValue();
-                            if (firstEntries.size() > 1) {
-                                // select larger queue from that list
-                                int largest = Integer.MIN_VALUE;
-                                for (final String hh: firstEntries) {
-                                    final HostQueue hhq = this.queues.get(hh);
-                                    if (hhq != null) {
-                                        final int s = hhq.size();
-                                        if (s > largest) {
-                                            largest = s;
-                                            rhh = hh;
-                                        }
+            List<String> lastEntries = null;
+
+            if (rhq == null && candidateHosts != null) {
+                final TreeMap<Integer, List<String>> fastTree = new TreeMap<>();
+
+                mixedstrategy: for (final String h: candidateHosts) {
+                    final HostQueue hq = this.queues.get(h);
+                    if (hq != null) {
+                        int delta = Latency.waitingRemainingGuessed(
+                                hq.getHost(),
+                                hq.getPort(),
+                                h,
+                                robots,
+                                unknwonAgentDefault) / 200;
+
+                        if (delta < 0) delta = 0;
+
+                        List<String> queueHashes = fastTree.get(delta);
+                        if (queueHashes == null) {
+                            queueHashes = new ArrayList<>(2);
+                            fastTree.put(delta, queueHashes);
+                        }
+
+                        queueHashes.add(h);
+
+                        final List<String> firstEntries =
+                                fastTree.firstEntry().getValue();
+
+                        if (firstEntries.size() > 1) {
+                            int largest = Integer.MIN_VALUE;
+
+                            for (final String hh: firstEntries) {
+                                final HostQueue hhq = this.queues.get(hh);
+                                if (hhq != null) {
+                                    final int size = hhq.size();
+                                    if (size > largest) {
+                                        largest = size;
+                                        rhh = hh;
                                     }
                                 }
-                                rhq = this.queues.get(rhh);
-                                break mixedstrategy;
                             }
+
+                            if (rhh != null) {
+                                rhq = this.queues.get(rhh);
+                            }
+                            break mixedstrategy;
                         }
-                    }
-                    if (rhq == null && fastTree.size() > 0) {
-                        // it may be possible that the lowest entry never has more than one queues assigned
-                        // in this case just take the smallest entry
-                        final List<String> firstEntries = fastTree.firstEntry().getValue();
-                        assert firstEntries.size() == 1;
-                        rhh = firstEntries.get(0);
-                        rhq = this.queues.get(rhh);
-                    }
-                    // to prevent that the complete roundrobinhosthashes are taken for each round, we remove the entries from the top of the fast queue
-                    final List<String> lastEntries = fastTree.size() > 0 ? fastTree.lastEntry().getValue() : null;
-                    if (lastEntries != null) {
-                        for (final String h: lastEntries) this.roundRobinHostHashes.remove(h);
                     }
                 }
 
-                /*
-                // first strategy: get one entry which does not need sleep time
-                Iterator<String> nhhi = this.roundRobinHostHashes.iterator();
-                nosleep: while (nhhi.hasNext()) {
-                    rhh = nhhi.next();
+                if (rhq == null && !fastTree.isEmpty()) {
+                    final List<String> firstEntries =
+                            fastTree.firstEntry().getValue();
+
+                    rhh = firstEntries.get(0);
                     rhq = this.queues.get(rhh);
-                    if (rhq == null) {
-                        nhhi.remove();
-                        continue nosleep;
-            }
-                    int delta = Latency.waitingRemainingGuessed(rhq.getHost(), rhh, robots, ClientIdentification.yacyInternetCrawlerAgent);
-                    if (delta <= 10 || this.roundRobinHostHashes.size() == 1 || rhq.size() == 1) {
-                        nhhi.remove();
-                        break nosleep;
-                    }
                 }
-                if (rhq == null) {
-                    // second strategy: take from the largest stack
-                    int largest = Integer.MIN_VALUE;
-                    for (String h: this.roundRobinHostHashes) {
-                        HostQueue hq = this.queues.get(h);
-                        if (hq != null) {
-                            int s = hq.size();
-                            if (s > largest) {
-                                largest = s;
-                                rhh = h;
+
+                if (!fastTree.isEmpty()) {
+                    lastEntries = fastTree.lastEntry().getValue();
+                }
+            }
+
+            /*
+             * Claim the selected host under the monitor. Another pop() may
+             * have selected the same host from an earlier snapshot, so the
+             * host must still be present in roundRobinHostHashes.
+             */
+            synchronized (this) {
+                if (rhq != null && rhh != null) {
+                candidateWasSelected = rhq != null && rhh != null;
+                    final HostQueue current = this.queues.get(rhh);
+
+                    if (current != rhq || !this.roundRobinHostHashes.contains(rhh)) {
+                        rhq = null;
+                        rhh = null;
+                    } else {
+                        this.roundRobinHostHashes.remove(rhh);
+
+                        if (lastEntries != null) {
+                            for (final String h: lastEntries) {
+                                if (!h.equals(rhh)) {
+                                    this.roundRobinHostHashes.remove(h);
+                                }
                             }
                         }
                     }
-                    rhq = this.queues.get(rhh);
                 }
-                */
             }
 
             if (rhq == null) {
-                this.roundRobinHostHashes.clear(); // force re-initialization
-                continue tryagain;
-            }
-            this.roundRobinHostHashes.remove(rhh); // prevent that the queue is used again
+      /*
+     * When a candidate was selected but another concurrent pop()
+     * claimed it first, simply retry with a new snapshot. Do not
+     * clear the complete round-robin set.
+     */
+        if (!candidateWasSelected) {
+             synchronized (this) {
+                 this.roundRobinHostHashes.clear();
+        }
+    }
+    continue tryagain;
+}
             final long timestamp = System.currentTimeMillis();
             final Request request = rhq.pop(delay, cs, robots); // this pop is outside of synchronization to prevent blocking of pushes
             final long actualwaiting = System.currentTimeMillis() - timestamp;
