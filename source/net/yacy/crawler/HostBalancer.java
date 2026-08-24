@@ -72,8 +72,8 @@ public class HostBalancer implements Balancer {
     private final boolean exceed134217727;
     private final ConcurrentHashMap<String, HostQueue> queues;
     private final Set<String> roundRobinHostHashes;
+    private boolean roundRobinRefillInProgress;
     private final int onDemandLimit;
-
     /**
      * Create a new instance and asynchronously fills the queue by scanning the hostsPath directory.
      * @param hostsPath path with persisted hosts queues
@@ -107,8 +107,9 @@ public class HostBalancer implements Balancer {
         if (!(hostsPath.exists())) hostsPath.mkdirs(); // make the path
         this.queues = new ConcurrentHashMap<>();
         this.roundRobinHostHashes = new HashSet<>();
-        this.init(asyncInit); // return without wait but starts a thread to fill the queues
-    }
+        this.roundRobinRefillInProgress = false;
+        this.init(asyncInit);
+        }
 
     /**
      * Fills the queue by scanning the hostsPath directory.
@@ -323,73 +324,160 @@ public class HostBalancer implements Balancer {
             String rhh = null;
             List<String> candidateHosts = null;
             boolean candidateWasSelected = false;
+            List<String> refillHosts = null;
 
             synchronized (this) {
                 if (this.roundRobinHostHashes.size() == 0) {
-                    // refresh the round-robin cache
-                    this.roundRobinHostHashes.addAll(this.queues.keySet());
-                    // quickly get rid of small stacks to reduce number of files:
-                    // remove all stacks with more than 10 entries
-                    // this shall kick out small stacks to prevent that too many files are opened for very wide crawls
+                    if (this.roundRobinRefillInProgress) {
+                        try {
+                            this.wait(100L);
+                        } catch (final InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException(e);
+                        }
+                        continue tryagain;
+                    }
+
+                    this.roundRobinRefillInProgress = true;
+                    refillHosts = new ArrayList<>(this.queues.keySet());
+                }
+            }
+
+            /*
+             * Rebuild the round-robin host set outside the HostBalancer
+             * monitor. HostQueue.size() and latency inspection may touch
+             * on-demand indexes and must not block unrelated pop()/push()
+             * operations on the global HostBalancer monitor.
+             */
+            if (refillHosts != null) {
+                final Set<String> refillSet = new HashSet<>(refillHosts);
+
+                try {
                     boolean smallStacksExist = false;
                     boolean singletonStacksExist = false;
-                    smallsearch: for (final String s: this.roundRobinHostHashes) {
+
+                    smallsearch: for (final String s: refillSet) {
                         final HostQueue hq = this.queues.get(s);
                         if (hq != null) {
                             final int size = hq.size();
-                            if (size ==  1) {singletonStacksExist = true; break smallsearch;}
-                            if (size <= 10) {smallStacksExist = true; break smallsearch;}
-                        }
-                    }
-                    final ArrayList<String> freshhosts = new ArrayList<>();
-                    final ArrayList<String> removehosts = new ArrayList<>();
-                    final Iterator<String> i = this.roundRobinHostHashes.iterator();
-                    smallstacks: while (i.hasNext()) {
-                        if (this.roundRobinHostHashes.size() <= 10) break smallstacks; // don't shrink the hosts until nothing is left
-                        final String hosthash = i.next();
-                        final HostQueue hq = this.queues.get(hosthash);
-                        if (hq == null) {removehosts.add(hosthash); i.remove(); continue smallstacks;}
-
-                        final int delta = Latency.waitingRemainingGuessed(hq.getHost(), hq.getPort(), hosthash, robots, unknwonAgentDefault);
-                        if (delta == Integer.MIN_VALUE) {
-                            // never-crawled hosts; we do not want to have too many of them in here. Loading new hosts means: waiting for robots.txt to load
-                            freshhosts.add(hosthash);
-                            i.remove();
-                            continue smallstacks;
-                        }
-                        if (singletonStacksExist || smallStacksExist) {
-                            if (delta < 0) continue; // keep all non-waiting stacks; they are useful to speed up things
-                            // to protect all small stacks which have a fast throughput, remove all with long waiting time
-                            if (delta >= 1000) {removehosts.add(hosthash); i.remove(); continue smallstacks;}
-                            final int size = hq.size();
-                            if (singletonStacksExist) {
-                                if (size != 1) {removehosts.add(hosthash); i.remove(); continue smallstacks;} // remove all non-singletons
-                            } else /*smallStacksExist*/ {
-                                if (size > 10) {removehosts.add(hosthash); i.remove(); continue smallstacks;} // remove all large stacks
+                            if (size == 1) {
+                                singletonStacksExist = true;
+                                break smallsearch;
+                            }
+                            if (size <= 10) {
+                                smallStacksExist = true;
+                                break smallsearch;
                             }
                         }
                     }
 
-                    // shuffle the lists
+                    final ArrayList<String> freshhosts = new ArrayList<>();
+                    final ArrayList<String> removehosts = new ArrayList<>();
+                    final Iterator<String> i = refillSet.iterator();
+
+                    smallstacks: while (i.hasNext()) {
+                        if (refillSet.size() <= 10) break smallstacks;
+
+                        final String hosthash = i.next();
+                        final HostQueue hq = this.queues.get(hosthash);
+
+                        if (hq == null) {
+                            removehosts.add(hosthash);
+                            i.remove();
+                            continue smallstacks;
+                        }
+
+                        final int delta = Latency.waitingRemainingGuessed(
+                                hq.getHost(),
+                                hq.getPort(),
+                                hosthash,
+                                robots,
+                                unknwonAgentDefault);
+
+                        if (delta == Integer.MIN_VALUE) {
+                            freshhosts.add(hosthash);
+                            i.remove();
+                            continue smallstacks;
+                        }
+
+                        if (singletonStacksExist || smallStacksExist) {
+                            if (delta < 0) continue;
+
+                            if (delta >= 1000) {
+                                removehosts.add(hosthash);
+                                i.remove();
+                                continue smallstacks;
+                            }
+
+                            final int size = hq.size();
+
+                            if (singletonStacksExist) {
+                                if (size != 1) {
+                                    removehosts.add(hosthash);
+                                    i.remove();
+                                    continue smallstacks;
+                                }
+                            } else if (size > 10) {
+                                removehosts.add(hosthash);
+                                i.remove();
+                                continue smallstacks;
+                            }
+                        }
+                    }
+
                     final Random r = new Random();
 
-                    // put at least one of the fresh hosts back
-                    if (freshhosts.size() > 0) this.roundRobinHostHashes.add(freshhosts.remove(r.nextInt(freshhosts.size())));
-                    // fill up so we can have at least 100 domains in the queue
-                    while (this.roundRobinHostHashes.size() < 100 && removehosts.size() > 0) {
-                        this.roundRobinHostHashes.add(removehosts.remove(r.nextInt(removehosts.size())));
-                    }
-                    while (this.roundRobinHostHashes.size() < 100 && freshhosts.size() > 0) {
-                        this.roundRobinHostHashes.add(freshhosts.remove(r.nextInt(freshhosts.size())));
+                    if (!freshhosts.isEmpty()) {
+                        refillSet.add(
+                                freshhosts.remove(r.nextInt(freshhosts.size())));
                     }
 
-                    // result
-                    if (this.roundRobinHostHashes.size() == 1) {
-                        if (log.isFine()) log.fine("(re-)initialized the round-robin queue with one host");
-                    } else {
-                        log.info("(re-)initialized the round-robin queue; " + this.roundRobinHostHashes.size() + " hosts.");
+                    while (refillSet.size() < 100 && !removehosts.isEmpty()) {
+                        refillSet.add(
+                                removehosts.remove(r.nextInt(removehosts.size())));
+                    }
+
+                    while (refillSet.size() < 100 && !freshhosts.isEmpty()) {
+                        refillSet.add(
+                                freshhosts.remove(r.nextInt(freshhosts.size())));
+                    }
+
+                    synchronized (this) {
+                        /*
+                         * Queues may have disappeared while the snapshot was
+                         * inspected. Do not install stale host hashes.
+                         */
+                        refillSet.retainAll(this.queues.keySet());
+
+                        if (this.roundRobinHostHashes.isEmpty()) {
+                            this.roundRobinHostHashes.addAll(refillSet);
+                        }
+
+                        if (this.roundRobinHostHashes.size() == 1) {
+                            if (log.isFine()) {
+                                log.fine("(re-)initialized the round-robin queue with one host");
+                            }
+                        } else {
+                            log.info("(re-)initialized the round-robin queue; "
+                                    + this.roundRobinHostHashes.size()
+                                    + " hosts.");
+                        }
+                    }
+                } finally {
+                    synchronized (this) {
+                        this.roundRobinRefillInProgress = false;
+                        this.notifyAll();
                     }
                 }
+
+                /*
+                 * Re-enter through the normal candidate snapshot path using
+                 * the newly installed round-robin set.
+                 */
+                continue tryagain;
+            }
+
+            synchronized (this) {
                 if (this.roundRobinHostHashes.size() == 0) return null;
 
                 /*
@@ -397,13 +485,13 @@ public class HostBalancer implements Balancer {
                  * HostBalancer monitor. Expensive queue inspection and
                  * latency calculations are performed after releasing it.
                  */
-
                 if (this.roundRobinHostHashes.size() == 1) {
                     rhh = this.roundRobinHostHashes.iterator().next();
                     rhq = this.queues.get(rhh);
                     candidateHosts = null;
                 } else {
-                    candidateHosts = new ArrayList<>(this.roundRobinHostHashes);
+                    candidateHosts =
+                            new ArrayList<>(this.roundRobinHostHashes);
                 }
             }
 
@@ -475,10 +563,11 @@ public class HostBalancer implements Balancer {
              * have selected the same host from an earlier snapshot, so the
              * host must still be present in roundRobinHostHashes.
              */
-            synchronized (this) {
-                if (rhq != null && rhh != null) {
-                candidateWasSelected = rhq != null && rhh != null;
-                    final HostQueue current = this.queues.get(rhh);
+        synchronized (this) {
+            candidateWasSelected = rhq != null && rhh != null;
+
+                   if (rhq != null && rhh != null) {
+                        final HostQueue current = this.queues.get(rhh);
 
                     if (current != rhq || !this.roundRobinHostHashes.contains(rhh)) {
                         rhq = null;
